@@ -152,3 +152,7 @@
 #existingEquipmentWrap{padding:12px;border:1px solid #cfe0e7;border-radius:14px;background:#f4f9fb}
 #existingEquipmentWrap select{background:#fff}
 .registry-new-os{margin-top:10px}
+
+
+/* v8 — identidade canônica local: customerId/equipmentId */
+.registry-hero small{letter-spacing:.02em}
