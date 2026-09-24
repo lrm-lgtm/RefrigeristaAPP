@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#073d59">
+  <meta name="description" content="Luiz Miguel - gestão de refrigeração e climatização">
+  <title>Luiz Miguel | Refrigeração</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./styles.css?v=1">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brandmark">❄</div>
+      <div>
+        <strong>LUIZ MIGUEL</strong>
+        <small>AR CONDICIONADO E REFRIGERAÇÃO</small>
+      </div>
+    </div>
+    <button class="round" id="installBtn" hidden>⇩</button>
+  </header>
+
+  <main>
+    <section class="view active" data-view="home">
+      <div class="hello">
+        <div><span>Operação de hoje</span><h1>Visão geral</h1></div>
+        <button class="search-btn">⌕</button>
+      </div>
+
+      <button class="new-os" data-action="new-os"><span>＋</span><div><b>Nova ordem de serviço</b><small>Cliente → equipamento → atendimento</small></div></button>
+
+      <div class="stats">
+        <article><strong id="openCount">4</strong><span>OS abertas</span></article>
+        <article><strong>2</strong><span>Aguardando cliente</span></article>
+        <article><strong>5</strong><span>Preventivas</span></article>
+      </div>
+
+      <div class="section-title"><div><b>Atendimentos</b><small>O que pede ação primeiro</small></div><button data-go="orders">Ver todos</button></div>
+      <div class="cards" id="homeOrders"></div>
+
+      <div class="section-title"><div><b>Próximas preventivas</b><small>Clientes para retornar</small></div></div>
+      <div class="preventive">
+        <div><span class="date">02 OUT</span><p><b>Mercado Avenida</b><small>Câmara fria · revisão semestral</small></p></div>
+        <div><span class="date">08 OUT</span><p><b>Maria Aparecida</b><small>Split LG 12.000 BTU · limpeza</small></p></div>
+      </div>
+    </section>
+
+    <section class="view" data-view="orders">
+      <div class="page-head"><div><span>Operação</span><h1>Ordens de serviço</h1></div><button class="primary compact" data-action="new-os">＋ Nova</button></div>
+      <label class="search"><span>⌕</span><input id="orderSearch" placeholder="Cliente, equipamento ou OS"></label>
+      <div class="cards" id="orderList"></div>
+    </section>
+
+    <section class="view" data-view="clients">
+      <div class="page-head"><div><span>Relacionamento</span><h1>Clientes</h1></div><button class="primary compact">＋ Novo</button></div>
+      <label class="search"><span>⌕</span><input placeholder="Nome, telefone ou endereço"></label>
+      <div class="client-card">
+        <div class="avatar">MA</div><div><b>Maria Aparecida</b><small>2 equipamentos · 4 atendimentos</small></div><span>›</span>
+      </div>
+      <div class="client-card">
+        <div class="avatar">MC</div><div><b>Mercado Avenida</b><small>6 equipamentos · 11 atendimentos</small></div><span>›</span>
+      </div>
+      <div class="client-card">
+        <div class="avatar">PR</div><div><b>Paulo Roberto</b><small>1 equipamento · 2 atendimentos</small></div><span>›</span>
+      </div>
+    </section>
+
+    <section class="view" data-view="equipment">
+      <div class="page-head"><div><span>Patrimônio técnico</span><h1>Equipamentos</h1></div><button class="primary compact">＋ Novo</button></div>
+      <div class="equipment-card">
+        <div class="equip-icon">❄</div>
+        <div><b>LG Dual Inverter 12.000 BTU</b><small>Maria Aparecida · Sala</small><em>R410A · 220 V</em></div>
+        <span>›</span>
+      </div>
+      <div class="equipment-card">
+        <div class="equip-icon">▣</div>
+        <div><b>Câmara fria principal</b><small>Mercado Avenida · Açougue</small><em>R404A · 220 V</em></div>
+        <span>›</span>
+      </div>
+
+      <div class="timeline-title"><b>Exemplo de prontuário</b><small>Histórico de um equipamento</small></div>
+      <div class="equipment-profile">
+        <div class="equipment-profile-head"><span>❄</span><div><b>LG Dual Inverter</b><small>Sala · 12.000 BTU · R410A · 220 V</small></div></div>
+        <div class="timeline">
+          <article><i></i><div><time>24/09/2026</time><b>Limpeza completa + revisão</b><small>Higienização, dreno e testes de funcionamento.</small><footer><span>📷 4 fotos</span><span>✍ Assinado</span><strong>R$ 250,00</strong></footer></div></article>
+          <article><i></i><div><time>10/03/2026</time><b>Troca de capacitor</b><small>Capacitor abaixo da capacitância nominal.</small><footer><span>📷 2 fotos</span><span>✍ Assinado</span><strong>R$ 180,00</strong></footer></div></article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <button class="active" data-go="home"><span>⌂</span><b>Início</b></button>
+    <button data-go="orders"><span>▤</span><b>OS</b></button>
+    <button class="center" data-action="new-os"><span>＋</span></button>
+    <button data-go="clients"><span>●</span><b>Clientes</b></button>
+    <button data-go="equipment"><span>❄</span><b>Equip.</b></button>
+  </nav>
+
+  <dialog id="newOsDialog">
+    <form method="dialog" id="osForm">
+      <header><div><span>Nova ordem de serviço</span><h2 id="wizardTitle">Cliente</h2></div><button value="cancel">×</button></header>
+      <div class="steps"><i class="on">1</i><i>2</i><i>3</i></div>
+
+      <section class="step active" data-step="1">
+        <label>Cliente<input name="customer" required placeholder="Nome do cliente"></label>
+        <label>Telefone<input name="phone" inputmode="tel" placeholder="(19) 99999-9999"></label>
+        <button type="button" class="primary full" data-next="2">Continuar</button>
+      </section>
+
+      <section class="step" data-step="2">
+        <label>Tipo de equipamento
+          <select name="type"><option>Ar-condicionado Split</option><option>Geladeira</option><option>Freezer</option><option>Câmara fria</option><option>Expositor</option><option>Outro</option></select>
+        </label>
+        <div class="grid2"><label>Marca<input name="brand" placeholder="LG"></label><label>Modelo<input name="model" placeholder="Dual Inverter"></label></div>
+        <div class="grid2"><label>Capacidade<input name="capacity" placeholder="12.000 BTU"></label><label>Tensão<input name="voltage" placeholder="220 V"></label></div>
+        <div class="grid2"><label>Gás<input name="gas" placeholder="R410A"></label><label>Ambiente<input name="room" placeholder="Sala"></label></div>
+        <label>Nº de série<input name="serial" placeholder="Opcional"></label>
+        <div class="actions"><button type="button" class="secondary" data-prev="1">Voltar</button><button type="button" class="primary" data-next="3">Continuar</button></div>
+      </section>
+
+      <section class="step" data-step="3">
+        <label>Problema relatado<textarea name="complaint" rows="4" placeholder="Ex.: não está gelando corretamente"></textarea></label>
+        <label>Fotos do atendimento <small>opcional</small><input name="photos" type="file" accept="image/*" capture="environment" multiple></label>
+        <div class="photo-hint"><span>📷</span><p><b>Sem vistoria obrigatória</b><small>Adicione fotos antes, durante ou depois quando fizer sentido.</small></p></div>
+        <div class="actions"><button type="button" class="secondary" data-prev="2">Voltar</button><button class="primary" value="default">Criar OS</button></div>
+      </section>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast"></div>
+  <script src="./app.js?v=1"></script>
+</body>
+</html>
