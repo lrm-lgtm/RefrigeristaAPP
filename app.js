@@ -13,6 +13,60 @@ const steps=[...document.querySelectorAll(".step")];
 const stepDots=[...document.querySelectorAll(".steps i")];
 let currentView="home";
 
+const MEDIA_DB_NAME="refrigerista-media-v1";
+const MEDIA_STORE="media";
+let mediaDbPromise=null;
+function mediaDb(){
+  if(mediaDbPromise)return mediaDbPromise;
+  mediaDbPromise=new Promise((resolve,reject)=>{
+    const req=indexedDB.open(MEDIA_DB_NAME,1);
+    req.onupgradeneeded=()=>{
+      const db=req.result;
+      if(!db.objectStoreNames.contains(MEDIA_STORE)){
+        const store=db.createObjectStore(MEDIA_STORE,{keyPath:"id"});
+        store.createIndex("orderId","orderId",{unique:false});
+      }
+    };
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error);
+  });
+  return mediaDbPromise;
+}
+async function putMedia(record){
+  const db=await mediaDb();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(MEDIA_STORE,"readwrite");
+    tx.objectStore(MEDIA_STORE).put(record);
+    tx.oncomplete=()=>resolve(true); tx.onerror=()=>reject(tx.error);
+  });
+}
+async function getOrderMedia(orderId){
+  const db=await mediaDb();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(MEDIA_STORE,"readonly");
+    const req=tx.objectStore(MEDIA_STORE).index("orderId").getAll(String(orderId));
+    req.onsuccess=()=>resolve(req.result||[]); req.onerror=()=>reject(req.error);
+  });
+}
+async function saveOrderFiles(orderId,files,phase){
+  const list=[...(files||[])];
+  for(const file of list){
+    await putMedia({
+      id:crypto.randomUUID(),orderId:String(orderId),kind:"photo",phase,
+      name:file.name||"foto.jpg",mime:file.type||"image/jpeg",blob:file,createdAt:new Date().toISOString()
+    });
+  }
+  return list.length;
+}
+async function saveSignatureMedia(orderId){
+  if(!signatureCanvas||!hasSignature)return false;
+  const blob=await new Promise(resolve=>signatureCanvas.toBlob(resolve,"image/png"));
+  if(!blob)return false;
+  await putMedia({id:crypto.randomUUID(),orderId:String(orderId),kind:"signature",phase:"finish",name:"assinatura.png",mime:"image/png",blob,createdAt:new Date().toISOString()});
+  return true;
+}
+
+
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]))}
 function notify(msg){toast.textContent=msg;toast.classList.add("show");clearTimeout(window.__t);window.__t=setTimeout(()=>toast.classList.remove("show"),2200)}
 function go(name){
@@ -110,7 +164,7 @@ function setStep(n){
 document.querySelectorAll("[data-action='new-os']").forEach(b=>b.addEventListener("click",()=>{form.reset();setStep(1);dialog.showModal()}));
 document.querySelectorAll("[data-next]").forEach(b=>b.addEventListener("click",()=>{if(b.dataset.next==="2"&&!form.customer.value.trim()){notify("Informe o cliente.");return}setStep(Number(b.dataset.next))}));
 document.querySelectorAll("[data-prev]").forEach(b=>b.addEventListener("click",()=>setStep(Number(b.dataset.prev))));
-form.addEventListener("submit",e=>{
+form.addEventListener("submit",async e=>{
   e.preventDefault();
   const fd=new FormData(form);
   const equipmentText=[fd.get("brand"),fd.get("model"),fd.get("capacity")].filter(Boolean).join(" ")||fd.get("type")||"Equipamento";
@@ -135,7 +189,10 @@ form.addEventListener("submit",e=>{
     initialPhotos:(form.elements.photos?.files||[]).length,
     createdAt:new Date().toISOString()
   };
-  const saved=JSON.parse(localStorage.getItem("refrig-orders")||"[]");saved.unshift(item);localStorage.setItem("refrig-orders",JSON.stringify(saved));render();dialog.close();go("orders");notify("OS criada nesta demonstração.");
+  const initialFiles=[...(form.elements.photos?.files||[])];
+  const saved=JSON.parse(localStorage.getItem("refrig-orders")||"[]");saved.unshift(item);localStorage.setItem("refrig-orders",JSON.stringify(saved));
+  try{await saveOrderFiles(item.id,initialFiles,"initial")}catch{}
+  render();dialog.close();go("orders");notify("OS criada e registrada no histórico.");
 });
 const q=document.getElementById("orderSearch");q?.addEventListener("input",()=>{const term=q.value.toLowerCase();document.getElementById("orderList").innerHTML=orders().filter(o=>(o.customer+" "+o.equipment+" "+o.id).toLowerCase().includes(term)).map(card).join("")});
 let deferredPrompt;window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;document.getElementById("installBtn").hidden=false});document.getElementById("installBtn")?.addEventListener("click",async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null});
@@ -176,6 +233,7 @@ function openOrderDetail(id){
       '<section class="info-card"><span>Diagnóstico</span><b>'+esc(o.diagnosis||"Ainda não informado")+'</b></section>'+
       '<section class="info-card wide"><span>Serviço executado</span><b>'+esc(o.service||"Ainda não informado")+'</b>'+(o.materials?'<p>Materiais: '+esc(o.materials)+'</p>':'')+'</section>'+
       '<section class="info-card wide"><span>Registro do atendimento</span><div class="value-grid"><div><small>Serviço</small><b>'+moneyValue(o.laborValue)+'</b></div><div><small>Materiais</small><b>'+moneyValue(o.materialValue)+'</b></div><div><small>Total</small><b>'+moneyValue(total)+'</b></div></div><div class="detail-pills"><span>📷 '+photos+' foto(s)</span><span>'+(o.signed?"✍ Assinado":"Assinatura pendente")+'</span><span>'+esc(o.payment||"Pendente")+'</span></div></section>'+
+      '<section class="info-card wide"><span>Fotos e assinatura</span><div class="media-gallery" id="orderMediaGallery"><div class="media-loading">Carregando evidências…</div></div></section>'+
       '<section class="info-card wide"><span>Histórico</span><div class="history-list">'+detailHistory(o)+'</div></section>'+
     '</div>'+
     (o.tag==="done"?'<button class="primary full detail-main-action" data-reopen>Reabrir atendimento</button>':'<button class="primary full detail-main-action" data-finish>Finalizar atendimento</button>');
@@ -183,6 +241,7 @@ function openOrderDetail(id){
   detailContent.querySelector(".detail-back").onclick=()=>setViewDirect(lastNonDetailView||"orders");
   detailContent.querySelector("[data-finish]")?.addEventListener("click",()=>openFinish(o));
   detailContent.querySelector("[data-reopen]")?.addEventListener("click",()=>{saveOrderDetail(o.id,{status:"Em atendimento",tag:"service"});render();openOrderDetail(o.id);notify("OS reaberta.")});
+  renderOrderMedia(o.id);
 }
 function orderHistoryCard(o){
   const total=Number(o.laborValue||0)+Number(o.materialValue||0);
@@ -224,6 +283,20 @@ document.addEventListener("click",e=>{
 document.getElementById("clientSearch")?.addEventListener("input",e=>renderClients(e.target.value));
 document.getElementById("equipmentSearch")?.addEventListener("input",e=>renderEquipment(e.target.value));
 
+
+async function renderOrderMedia(orderId){
+  const target=document.getElementById("orderMediaGallery"); if(!target)return;
+  try{
+    const rows=await getOrderMedia(orderId);
+    if(!rows.length){target.innerHTML='<div class="media-empty">Nenhuma foto ou assinatura salva neste aparelho.</div>';return}
+    target.innerHTML=rows.sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt))).map(r=>{
+      const url=URL.createObjectURL(r.blob);
+      if(r.kind==="signature")return '<figure class="media-item signature-media"><img src="'+url+'" alt="Assinatura do cliente"><figcaption>✍ Assinatura do cliente</figcaption></figure>';
+      return '<figure class="media-item"><img src="'+url+'" alt="Foto do atendimento"><figcaption>📷 '+esc(r.phase==="initial"?"Abertura":"Serviço")+'</figcaption></figure>';
+    }).join("");
+  }catch{target.innerHTML='<div class="media-empty">Não foi possível carregar as evidências locais.</div>'}
+}
+
 function resizeSignature(){
   if(!signatureCanvas)return;
   const r=signatureCanvas.getBoundingClientRect(),ratio=Math.max(1,window.devicePixelRatio||1);
@@ -242,10 +315,15 @@ function openFinish(o){
   finishForm.elements.laborValue.value=o.laborValue||"";finishForm.elements.materialValue.value=o.materialValue||"";finishForm.elements.payment.value=o.payment||"Pendente";
   hasSignature=false;finishDialog.showModal();requestAnimationFrame(resizeSignature);
 }
-finishForm?.addEventListener("submit",e=>{
+finishForm?.addEventListener("submit",async e=>{
   e.preventDefault();const fd=new FormData(finishForm),id=document.getElementById("finishOrderId").value,o=findOrder(id);if(!o)return;
   const labor=parseMoney(fd.get("laborValue")),materialsValue=parseMoney(fd.get("materialValue")),total=labor+materialsValue;
   const patch={diagnosis:String(fd.get("diagnosis")||""),service:String(fd.get("service")||""),materials:String(fd.get("materials")||""),laborValue:labor,materialValue:materialsValue,payment:String(fd.get("payment")||"Pendente"),nextPreventive:String(fd.get("nextPreventive")||""),finishPhotos:(document.getElementById("finishPhotos").files||[]).length,signed:Boolean(document.getElementById("signedConsent").checked&&hasSignature),status:"Finalizada",tag:"done",value:moneyValue(total)};
   patch.history=[...(o.history||[]),{when:"Agora",label:"Atendimento finalizado",detail:(patch.service||"Serviço concluído")+" · "+patch.value+" · "+patch.payment+(patch.signed?" · assinado":"")}];
+  const finishFiles=[...(document.getElementById("finishPhotos").files||[])];
+  try{
+    await saveOrderFiles(id,finishFiles,"finish");
+    if(patch.signed)await saveSignatureMedia(id);
+  }catch{}
   saveOrderDetail(id,patch);finishDialog.close();render();openOrderDetail(id);notify("Atendimento salvo no histórico.");
 });
