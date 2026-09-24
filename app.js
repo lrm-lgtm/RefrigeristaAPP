@@ -85,18 +85,33 @@ function orders(){
   try{const base=[...JSON.parse(localStorage.getItem("refrig-orders")||"[]"),...demoOrders],detail=orderDetails();return base.map(o=>({...o,...(detail[String(o.id)]||{})}))}catch{return demoOrders}
 }
 
+function normalizeKey(v){
+  return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+}
+function stableId(prefix,value){
+  const text=prefix+"|"+normalizeKey(value);
+  let h=2166136261;
+  for(let i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,16777619)}
+  return prefix+"_"+(h>>>0).toString(36);
+}
+function customerIdOf(o){
+  return o.customerId||stableId("cus",[o.customer||"Cliente",String(o.phone||"").replace(/\D/g,"")].join("|"));
+}
 function equipmentKeyOf(o){
   return o.equipmentKey||[o.customer||"",o.serial||"",o.equipment||"",o.room||""].join("|").toLowerCase();
+}
+function equipmentIdOf(o){
+  return o.equipmentId||stableId("eqp",[customerIdOf(o),o.serial||"",o.equipment||"",o.room||""].join("|"));
 }
 function customerRows(){
   const map=new Map();
   for(const o of orders()){
-    const key=(o.customer||"Cliente").trim();
-    if(!map.has(key)) map.set(key,{name:key,phone:o.phone||"",orders:[],equipmentKeys:new Set(),total:0});
-    const row=map.get(key);
+    const id=customerIdOf(o);
+    if(!map.has(id)) map.set(id,{id,name:(o.customer||"Cliente").trim(),phone:o.phone||"",orders:[],equipmentIds:new Set(),total:0});
+    const row=map.get(id);
     row.phone=row.phone||o.phone||"";
-    row.orders.push(o);
-    row.equipmentKeys.add(equipmentKeyOf(o));
+    row.orders.push({...o,customerId:id,equipmentId:equipmentIdOf(o)});
+    row.equipmentIds.add(equipmentIdOf(o));
     row.total+=Number(o.laborValue||0)+Number(o.materialValue||0);
   }
   return [...map.values()].sort((a,b)=>a.name.localeCompare(b.name,"pt-BR"));
@@ -104,16 +119,17 @@ function customerRows(){
 function equipmentRows(){
   const map=new Map();
   for(const o of orders()){
+    const id=equipmentIdOf(o), customerId=customerIdOf(o);
     const key=equipmentKeyOf(o);
-    if(!map.has(key)) map.set(key,{
-      key,customer:o.customer||"Cliente",name:o.equipment||"Equipamento",
+    if(!map.has(id)) map.set(id,{
+      id,key,customerId,customer:o.customer||"Cliente",name:o.equipment||"Equipamento",
       type:o.equipmentType||"",brand:o.brand||"",model:o.model||"",capacity:o.capacity||"",
       voltage:o.voltage||"",gas:o.gas||"",room:o.room||"",serial:o.serial||"",
       orders:[],total:0,nextPreventive:""
     });
     const row=map.get(key);
     for(const f of ["type","brand","model","capacity","voltage","gas","room","serial"]){ if(!row[f]&&o[f]) row[f]=o[f]; }
-    row.orders.push(o);
+    row.orders.push({...o,customerId,equipmentId:id});
     row.total+=Number(o.laborValue||0)+Number(o.materialValue||0);
     if(o.nextPreventive) row.nextPreventive=o.nextPreventive;
   }
@@ -125,9 +141,9 @@ function renderClients(filter=""){
   const q=String(filter||"").toLowerCase().trim();
   const rows=customerRows().filter(c=>!q||[c.name,c.phone,...c.orders.map(o=>o.equipment)].join(" ").toLowerCase().includes(q));
   target.innerHTML=rows.length?rows.map(c=>
-    '<article class="client-card clickable-card" data-client="'+esc(encodeURIComponent(c.name))+'">'+
+    '<article class="client-card clickable-card" data-client="'+esc(c.id)+'">'+
       '<div class="avatar">'+esc(initials(c.name))+'</div><div><b>'+esc(c.name)+'</b>'+
-      '<small>'+c.equipmentKeys.size+' equipamento(s) · '+c.orders.length+' atendimento(s)</small>'+
+      '<small>'+c.equipmentIds.size+' equipamento(s) · '+c.orders.length+' atendimento(s)</small>'+
       (c.phone?'<em>'+esc(c.phone)+'</em>':'')+'</div><span>›</span></article>'
   ).join(""):'<div class="empty-state">Nenhum cliente encontrado.</div>';
 }
@@ -136,7 +152,7 @@ function renderEquipment(filter=""){
   const q=String(filter||"").toLowerCase().trim();
   const rows=equipmentRows().filter(e=>!q||[e.customer,e.name,e.brand,e.model,e.serial,e.room].join(" ").toLowerCase().includes(q));
   target.innerHTML=rows.length?rows.map(e=>
-    '<article class="equipment-card clickable-card" data-equipment="'+esc(encodeURIComponent(e.key))+'">'+
+    '<article class="equipment-card clickable-card" data-equipment="'+esc(e.id)+'">'+
       '<div class="equip-icon">'+(String(e.type||e.name).toLowerCase().includes("câmara")?"▣":"❄")+'</div>'+
       '<div><b>'+esc(e.name)+'</b><small>'+esc(e.customer)+(e.room?' · '+esc(e.room):'')+'</small>'+
       '<em>'+esc([e.gas,e.voltage,e.serial&&("S/N "+e.serial)].filter(Boolean).join(" · ")||e.orders.length+" atendimento(s)")+'</em></div><span>›</span></article>'
@@ -165,21 +181,22 @@ function populateExistingEquipment(preselect=""){
   const wrap=document.getElementById("existingEquipmentWrap"),select=document.getElementById("existingEquipmentSelect");
   if(!wrap||!select)return;
   const customer=String(form.elements.customer?.value||"").trim();
-  const rows=equipmentRows().filter(e=>e.customer===customer);
+  const c=customerRows().find(x=>x.name===customer);
+  const rows=equipmentRows().filter(e=>c?e.customerId===c.id:e.customer===customer);
   wrap.hidden=!rows.length;
-  select.innerHTML='<option value="">Cadastrar novo equipamento</option>'+rows.map(e=>'<option value="'+esc(encodeURIComponent(e.key))+'">'+esc(e.name+(e.room?" · "+e.room:""))+'</option>').join("");
-  if(preselect){select.value=encodeURIComponent(preselect);select.dispatchEvent(new Event("change"))}
+  select.innerHTML='<option value="">Cadastrar novo equipamento</option>'+rows.map(e=>'<option value="'+esc(e.id)+'">'+esc(e.name+(e.room?" · "+e.room:""))+'</option>').join("");
+  if(preselect){select.value=preselect;select.dispatchEvent(new Event("change"))}
 }
-function openNewOrder(customer="",equipmentKey=""){
+function openNewOrder(customerId="",equipmentId=""){
   form.reset();
-  if(customer){
-    form.elements.customer.value=customer;
-    const c=customerRows().find(x=>x.name===customer);
-    if(c?.phone)form.elements.phone.value=c.phone;
+  const c=customerRows().find(x=>x.id===customerId);
+  if(c){
+    form.elements.customer.value=c.name;
+    if(c.phone)form.elements.phone.value=c.phone;
   }
-  setStep(customer?2:1);
+  setStep(c?2:1);
   dialog.showModal();
-  if(customer)requestAnimationFrame(()=>populateExistingEquipment(equipmentKey));
+  if(c)requestAnimationFrame(()=>populateExistingEquipment(equipmentId));
 }
 document.querySelectorAll("[data-action='new-os']").forEach(b=>b.addEventListener("click",()=>openNewOrder()));
 document.querySelectorAll("[data-next]").forEach(b=>b.addEventListener("click",()=>{
@@ -194,7 +211,7 @@ form.elements.customer?.addEventListener("change",()=>{
 });
 document.getElementById("existingEquipmentSelect")?.addEventListener("change",e=>{
   if(!e.target.value)return;
-  const key=decodeURIComponent(e.target.value),row=equipmentRows().find(x=>x.key===key); if(!row)return;
+  const row=equipmentRows().find(x=>x.id===e.target.value); if(!row)return;
   const values={type:row.type,brand:row.brand,model:row.model,capacity:row.capacity,voltage:row.voltage,gas:row.gas,room:row.room,serial:row.serial};
   for(const [name,value] of Object.entries(values)){if(form.elements[name])form.elements[name].value=value||""}
 });
@@ -202,15 +219,20 @@ form.addEventListener("submit",async e=>{
   e.preventDefault();
   const fd=new FormData(form);
   const equipmentText=[fd.get("brand"),fd.get("model"),fd.get("capacity")].filter(Boolean).join(" ")||fd.get("type")||"Equipamento";
-  const equipmentKey=fd.get("existingEquipment")
-    ? decodeURIComponent(String(fd.get("existingEquipment")))
-    : [fd.get("customer"),fd.get("serial")||"",equipmentText,fd.get("room")||""].join("|").toLowerCase();
+  const existingEquipment=fd.get("existingEquipment")?equipmentRows().find(x=>x.id===String(fd.get("existingEquipment"))):null;
+  const customerName=String(fd.get("customer")||"Cliente").trim();
+  const phone=String(fd.get("phone")||"").trim();
+  const customerId=existingEquipment?.customerId||stableId("cus",[customerName,phone.replace(/\D/g,"")].join("|"));
+  const equipmentKey=existingEquipment?.key||[customerName,fd.get("serial")||"",equipmentText,fd.get("room")||""].join("|").toLowerCase();
+  const equipmentId=existingEquipment?.id||stableId("eqp",[customerId,fd.get("serial")||"",equipmentText,fd.get("room")||""].join("|"));
   const item={
     id:String(Date.now()).slice(-6),
-    customer:String(fd.get("customer")||"Cliente").trim(),
-    phone:String(fd.get("phone")||"").trim(),
+    customer:customerName,
+    customerId,
+    phone,
     equipment:equipmentText,
     equipmentKey,
+    equipmentId,
     equipmentType:String(fd.get("type")||"").trim(),
     brand:String(fd.get("brand")||"").trim(),
     model:String(fd.get("model")||"").trim(),
@@ -283,24 +305,24 @@ function orderHistoryCard(o){
   const total=Number(o.laborValue||0)+Number(o.materialValue||0);
   return '<article class="mini-os" data-order="'+esc(o.id)+'"><div><small>OS #'+esc(o.id)+' · '+esc(o.when||"")+'</small><b>'+esc(o.service||o.complaint||"Atendimento")+'</b><span>'+esc(o.equipment||"Equipamento")+'</span></div><div><span class="tag '+(o.tag==="done"?"done":o.tag==="wait"?"wait":"")+'">'+esc(o.status||"Aberta")+'</span><strong>'+(total?moneyValue(total):esc(o.value||"A orçar"))+'</strong></div></article>';
 }
-function openClientDetail(encodedName){
-  const name=decodeURIComponent(encodedName),c=customerRows().find(x=>x.name===name); if(!c)return;
-  const eq=equipmentRows().filter(e=>e.customer===name);
+function openClientDetail(customerId){
+  const c=customerRows().find(x=>x.id===customerId); if(!c)return;
+  const eq=equipmentRows().filter(e=>e.customerId===c.id);
   const target=document.getElementById("clientDetailContent");
   target.innerHTML=
     '<article class="registry-hero"><button class="registry-back" type="button">‹</button><div><small>Cliente</small><h1>'+esc(c.name)+'</h1><span>'+esc(c.phone||"Sem telefone cadastrado")+'</span></div></article>'+
     '<div class="registry-kpis"><div><small>Equipamentos</small><b>'+eq.length+'</b></div><div><small>Atendimentos</small><b>'+c.orders.length+'</b></div><div><small>Histórico</small><b>'+moneyValue(c.total)+'</b></div></div>'+
     '<button class="primary full registry-new-os" type="button" data-new-client-os>＋ Nova OS para este cliente</button>'+
     '<section class="registry-section"><div class="section-title"><div><b>Equipamentos</b><small>Prontuários deste cliente</small></div></div>'+
-      (eq.length?eq.map(e=>'<article class="equipment-card clickable-card" data-equipment="'+esc(encodeURIComponent(e.key))+'"><div class="equip-icon">❄</div><div><b>'+esc(e.name)+'</b><small>'+esc(e.room||"Local não informado")+'</small><em>'+esc([e.gas,e.voltage].filter(Boolean).join(" · ")||e.orders.length+" atendimento(s)")+'</em></div><span>›</span></article>').join(""):'<div class="empty-state">Nenhum equipamento cadastrado.</div>')+
+      (eq.length?eq.map(e=>'<article class="equipment-card clickable-card" data-equipment="'+esc(e.id)+'"><div class="equip-icon">❄</div><div><b>'+esc(e.name)+'</b><small>'+esc(e.room||"Local não informado")+'</small><em>'+esc([e.gas,e.voltage].filter(Boolean).join(" · ")||e.orders.length+" atendimento(s)")+'</em></div><span>›</span></article>').join(""):'<div class="empty-state">Nenhum equipamento cadastrado.</div>')+
     '</section>'+
     '<section class="registry-section"><div class="section-title"><div><b>Histórico de atendimentos</b><small>Valores, serviços e status</small></div></div><div class="mini-os-list">'+c.orders.slice().reverse().map(orderHistoryCard).join("")+'</div></section>';
   setViewDirect("client-detail");
   target.querySelector(".registry-back").onclick=()=>go("clients");
-  target.querySelector("[data-new-client-os]")?.addEventListener("click",()=>openNewOrder(c.name));
+  target.querySelector("[data-new-client-os]")?.addEventListener("click",()=>openNewOrder(c.id));
 }
-function openEquipmentDetail(encodedKey){
-  const key=decodeURIComponent(encodedKey),e=equipmentRows().find(x=>x.key===key); if(!e)return;
+function openEquipmentDetail(equipmentId){
+  const e=equipmentRows().find(x=>x.id===equipmentId); if(!e)return;
   const target=document.getElementById("equipmentDetailContent");
   const details=[
     e.room&&["Ambiente",e.room],e.type&&["Tipo",e.type],e.brand&&["Marca",e.brand],e.model&&["Modelo",e.model],
@@ -313,7 +335,7 @@ function openEquipmentDetail(encodedKey){
     '<section class="registry-section"><div class="section-title"><div><b>Prontuário técnico</b><small>Todo o histórico deste equipamento</small></div><strong>'+moneyValue(e.total)+'</strong></div><div class="mini-os-list">'+e.orders.slice().reverse().map(orderHistoryCard).join("")+'</div></section>';
   setViewDirect("equipment-detail");
   target.querySelector(".registry-back").onclick=()=>go("equipment");
-  target.querySelector("[data-new-equipment-os]")?.addEventListener("click",()=>openNewOrder(e.customer,e.key));
+  target.querySelector("[data-new-equipment-os]")?.addEventListener("click",()=>openNewOrder(e.customerId,e.id));
 }
 document.addEventListener("click",e=>{
   const o=e.target.closest(".order-card[data-order],.mini-os[data-order]"); if(o){openOrderDetail(o.dataset.order);return}
