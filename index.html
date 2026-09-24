@@ -6,13 +6,13 @@
   <meta name="theme-color" content="#073d59">
   <meta name="description" content="Luiz Miguel - gestão de refrigeração e climatização">
   <title>Luiz Miguel | Refrigeração</title>
-  <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="stylesheet" href="./styles.css?v=1">
+  <link rel="manifest" href="./manifest.webmanifest">\n  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css?v=2">
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="brandmark">❄</div>
+      <img class="brandmark brand-image" src="./icon.svg" alt="">
       <div>
         <strong>LUIZ MIGUEL</strong>
         <small>AR CONDICIONADO E REFRIGERAÇÃO</small>
@@ -88,7 +88,7 @@
         </div>
       </div>
     </section>
-  </main>
+    <section class="view detail-view" data-view="detail">\n      <div id="detailContent"></div>\n    </section>\n  </main>
 
   <nav class="bottom-nav">
     <button class="active" data-go="home"><span>⌂</span><b>Início</b></button>
@@ -129,7 +129,21 @@
     </form>
   </dialog>
 
-  <div class="toast" id="toast"></div>
-  <script src="./app.js?v=1"></script>
+\n  <dialog id="finishDialog" class="finish-dialog">
+    <form method="dialog" id="finishForm">
+      <header><div><span>Fechamento do atendimento</span><h2>Serviço, valores e assinatura</h2></div><button value="cancel">×</button></header>
+      <input type="hidden" id="finishOrderId" name="orderId">
+      <label>Diagnóstico<textarea name="diagnosis" rows="3" placeholder="Defeito encontrado"></textarea></label>
+      <label>Serviço executado<textarea name="service" rows="3" placeholder="Descreva o que foi feito"></textarea></label>
+      <label>Materiais / peças<textarea name="materials" rows="2" placeholder="Capacitor, gás, tubo, suporte..."></textarea></label>
+      <div class="grid2"><label>Serviço / mão de obra<input name="laborValue" inputmode="decimal" placeholder="0,00"></label><label>Materiais<input name="materialValue" inputmode="decimal" placeholder="0,00"></label></div>
+      <div class="grid2"><label>Pagamento<select name="payment"><option>Pix</option><option>Dinheiro</option><option>Cartão</option><option>Faturado</option><option>Crediário</option><option>Pendente</option></select></label><label>Próxima preventiva<input name="nextPreventive" type="date"></label></div>
+      <label>Fotos do serviço <small>opcional</small><input id="finishPhotos" type="file" accept="image/*" capture="environment" multiple></label>
+      <div class="signature-wrap"><div class="signature-head"><div><b>Assinatura do cliente</b><small>Assine com o dedo</small></div><button type="button" id="clearSignature">Limpar</button></div><canvas id="signatureCanvas" width="640" height="220"></canvas></div>
+      <label class="consent"><input type="checkbox" id="signedConsent"><span>Cliente confirma o serviço executado e os valores informados.</span></label>
+      <div class="actions"><button type="button" class="secondary" id="cancelFinish">Cancelar</button><button class="primary" type="submit">Finalizar atendimento</button></div>
+    </form>
+  </dialog>\n  <div class="toast" id="toast"></div>
+  <script src="./app.js?v=2"></script>
 </body>
 </html>
