@@ -8,7 +8,7 @@
   <title>Luiz Miguel | Refrigeração</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=4">
+  <link rel="stylesheet" href="./styles.css?v=5">
 </head>
 <body>
   <header class="topbar">
@@ -54,43 +54,24 @@
     </section>
 
     <section class="view" data-view="clients">
-      <div class="page-head"><div><span>Relacionamento</span><h1>Clientes</h1></div><button class="primary compact">＋ Novo</button></div>
-      <label class="search"><span>⌕</span><input placeholder="Nome, telefone ou endereço"></label>
-      <div class="client-card">
-        <div class="avatar">MA</div><div><b>Maria Aparecida</b><small>2 equipamentos · 4 atendimentos</small></div><span>›</span>
-      </div>
-      <div class="client-card">
-        <div class="avatar">MC</div><div><b>Mercado Avenida</b><small>6 equipamentos · 11 atendimentos</small></div><span>›</span>
-      </div>
-      <div class="client-card">
-        <div class="avatar">PR</div><div><b>Paulo Roberto</b><small>1 equipamento · 2 atendimentos</small></div><span>›</span>
-      </div>
+      <div class="page-head"><div><span>Relacionamento</span><h1>Clientes</h1></div><button class="primary compact" data-action="new-os">＋ Nova OS</button></div>
+      <label class="search"><span>⌕</span><input id="clientSearch" placeholder="Nome, telefone ou equipamento"></label>
+      <div id="clientList"></div>
     </section>
 
     <section class="view" data-view="equipment">
-      <div class="page-head"><div><span>Patrimônio técnico</span><h1>Equipamentos</h1></div><button class="primary compact">＋ Novo</button></div>
-      <div class="equipment-card">
-        <div class="equip-icon">❄</div>
-        <div><b>LG Dual Inverter 12.000 BTU</b><small>Maria Aparecida · Sala</small><em>R410A · 220 V</em></div>
-        <span>›</span>
-      </div>
-      <div class="equipment-card">
-        <div class="equip-icon">▣</div>
-        <div><b>Câmara fria principal</b><small>Mercado Avenida · Açougue</small><em>R404A · 220 V</em></div>
-        <span>›</span>
-      </div>
-
-      <div class="timeline-title"><b>Exemplo de prontuário</b><small>Histórico de um equipamento</small></div>
-      <div class="equipment-profile">
-        <div class="equipment-profile-head"><span>❄</span><div><b>LG Dual Inverter</b><small>Sala · 12.000 BTU · R410A · 220 V</small></div></div>
-        <div class="timeline">
-          <article><i></i><div><time>24/09/2026</time><b>Limpeza completa + revisão</b><small>Higienização, dreno e testes de funcionamento.</small><footer><span>📷 4 fotos</span><span>✍ Assinado</span><strong>R$ 250,00</strong></footer></div></article>
-          <article><i></i><div><time>10/03/2026</time><b>Troca de capacitor</b><small>Capacitor abaixo da capacitância nominal.</small><footer><span>📷 2 fotos</span><span>✍ Assinado</span><strong>R$ 180,00</strong></footer></div></article>
-        </div>
-      </div>
+      <div class="page-head"><div><span>Patrimônio técnico</span><h1>Equipamentos</h1></div><button class="primary compact" data-action="new-os">＋ Nova OS</button></div>
+      <label class="search"><span>⌕</span><input id="equipmentSearch" placeholder="Cliente, marca, modelo ou série"></label>
+      <div id="equipmentList"></div>
     </section>
     <section class="view detail-view" data-view="detail">
       <div id="detailContent"></div>
+    </section>
+    <section class="view detail-view" data-view="client-detail">
+      <div id="clientDetailContent"></div>
+    </section>
+    <section class="view detail-view" data-view="equipment-detail">
+      <div id="equipmentDetailContent"></div>
     </section>
   </main>
 
@@ -108,7 +89,7 @@
       <div class="steps"><i class="on">1</i><i>2</i><i>3</i></div>
 
       <section class="step active" data-step="1">
-        <label>Cliente<input name="customer" required placeholder="Nome do cliente"></label>
+        <label>Cliente<input name="customer" required list="customerOptions" placeholder="Nome do cliente"><datalist id="customerOptions"></datalist></label>
         <label>Telefone<input name="phone" inputmode="tel" placeholder="(19) 99999-9999"></label>
         <button type="button" class="primary full" data-next="2">Continuar</button>
       </section>
@@ -150,6 +131,6 @@
     </form>
   </dialog>
   <div class="toast" id="toast"></div>
-  <script src="./app.js?v=4"></script>
+  <script src="./app.js?v=5"></script>
 </body>
 </html>
