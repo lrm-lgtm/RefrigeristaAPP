@@ -161,14 +161,50 @@ function setStep(n){
   stepDots.forEach((d,i)=>d.classList.toggle("on",i<n));
   document.getElementById("wizardTitle").textContent=({1:"Cliente",2:"Equipamento",3:"Atendimento"})[n];
 }
-document.querySelectorAll("[data-action='new-os']").forEach(b=>b.addEventListener("click",()=>{form.reset();setStep(1);dialog.showModal()}));
-document.querySelectorAll("[data-next]").forEach(b=>b.addEventListener("click",()=>{if(b.dataset.next==="2"&&!form.customer.value.trim()){notify("Informe o cliente.");return}setStep(Number(b.dataset.next))}));
+function populateExistingEquipment(preselect=""){
+  const wrap=document.getElementById("existingEquipmentWrap"),select=document.getElementById("existingEquipmentSelect");
+  if(!wrap||!select)return;
+  const customer=String(form.elements.customer?.value||"").trim();
+  const rows=equipmentRows().filter(e=>e.customer===customer);
+  wrap.hidden=!rows.length;
+  select.innerHTML='<option value="">Cadastrar novo equipamento</option>'+rows.map(e=>'<option value="'+esc(encodeURIComponent(e.key))+'">'+esc(e.name+(e.room?" · "+e.room:""))+'</option>').join("");
+  if(preselect){select.value=encodeURIComponent(preselect);select.dispatchEvent(new Event("change"))}
+}
+function openNewOrder(customer="",equipmentKey=""){
+  form.reset();
+  if(customer){
+    form.elements.customer.value=customer;
+    const c=customerRows().find(x=>x.name===customer);
+    if(c?.phone)form.elements.phone.value=c.phone;
+  }
+  setStep(customer?2:1);
+  dialog.showModal();
+  if(customer)requestAnimationFrame(()=>populateExistingEquipment(equipmentKey));
+}
+document.querySelectorAll("[data-action='new-os']").forEach(b=>b.addEventListener("click",()=>openNewOrder()));
+document.querySelectorAll("[data-next]").forEach(b=>b.addEventListener("click",()=>{
+  if(b.dataset.next==="2"&&!form.customer.value.trim()){notify("Informe o cliente.");return}
+  const next=Number(b.dataset.next);setStep(next);
+  if(next===2)populateExistingEquipment();
+}));
 document.querySelectorAll("[data-prev]").forEach(b=>b.addEventListener("click",()=>setStep(Number(b.dataset.prev))));
+form.elements.customer?.addEventListener("change",()=>{
+  const c=customerRows().find(x=>x.name===String(form.elements.customer.value||"").trim());
+  if(c?.phone&&!form.elements.phone.value)form.elements.phone.value=c.phone;
+});
+document.getElementById("existingEquipmentSelect")?.addEventListener("change",e=>{
+  if(!e.target.value)return;
+  const key=decodeURIComponent(e.target.value),row=equipmentRows().find(x=>x.key===key); if(!row)return;
+  const values={type:row.type,brand:row.brand,model:row.model,capacity:row.capacity,voltage:row.voltage,gas:row.gas,room:row.room,serial:row.serial};
+  for(const [name,value] of Object.entries(values)){if(form.elements[name])form.elements[name].value=value||""}
+});
 form.addEventListener("submit",async e=>{
   e.preventDefault();
   const fd=new FormData(form);
   const equipmentText=[fd.get("brand"),fd.get("model"),fd.get("capacity")].filter(Boolean).join(" ")||fd.get("type")||"Equipamento";
-  const equipmentKey=[fd.get("customer"),fd.get("serial")||"",equipmentText,fd.get("room")||""].join("|").toLowerCase();
+  const equipmentKey=fd.get("existingEquipment")
+    ? decodeURIComponent(String(fd.get("existingEquipment")))
+    : [fd.get("customer"),fd.get("serial")||"",equipmentText,fd.get("room")||""].join("|").toLowerCase();
   const item={
     id:String(Date.now()).slice(-6),
     customer:String(fd.get("customer")||"Cliente").trim(),
@@ -254,12 +290,14 @@ function openClientDetail(encodedName){
   target.innerHTML=
     '<article class="registry-hero"><button class="registry-back" type="button">‹</button><div><small>Cliente</small><h1>'+esc(c.name)+'</h1><span>'+esc(c.phone||"Sem telefone cadastrado")+'</span></div></article>'+
     '<div class="registry-kpis"><div><small>Equipamentos</small><b>'+eq.length+'</b></div><div><small>Atendimentos</small><b>'+c.orders.length+'</b></div><div><small>Histórico</small><b>'+moneyValue(c.total)+'</b></div></div>'+
+    '<button class="primary full registry-new-os" type="button" data-new-client-os>＋ Nova OS para este cliente</button>'+
     '<section class="registry-section"><div class="section-title"><div><b>Equipamentos</b><small>Prontuários deste cliente</small></div></div>'+
       (eq.length?eq.map(e=>'<article class="equipment-card clickable-card" data-equipment="'+esc(encodeURIComponent(e.key))+'"><div class="equip-icon">❄</div><div><b>'+esc(e.name)+'</b><small>'+esc(e.room||"Local não informado")+'</small><em>'+esc([e.gas,e.voltage].filter(Boolean).join(" · ")||e.orders.length+" atendimento(s)")+'</em></div><span>›</span></article>').join(""):'<div class="empty-state">Nenhum equipamento cadastrado.</div>')+
     '</section>'+
     '<section class="registry-section"><div class="section-title"><div><b>Histórico de atendimentos</b><small>Valores, serviços e status</small></div></div><div class="mini-os-list">'+c.orders.slice().reverse().map(orderHistoryCard).join("")+'</div></section>';
   setViewDirect("client-detail");
   target.querySelector(".registry-back").onclick=()=>go("clients");
+  target.querySelector("[data-new-client-os]")?.addEventListener("click",()=>openNewOrder(c.name));
 }
 function openEquipmentDetail(encodedKey){
   const key=decodeURIComponent(encodedKey),e=equipmentRows().find(x=>x.key===key); if(!e)return;
@@ -271,9 +309,11 @@ function openEquipmentDetail(encodedKey){
   target.innerHTML=
     '<article class="registry-hero equipment-hero"><button class="registry-back" type="button">‹</button><div><small>Equipamento · '+esc(e.customer)+'</small><h1>'+esc(e.name)+'</h1><span>'+(e.nextPreventive?'Próxima preventiva: '+esc(e.nextPreventive):e.orders.length+' atendimento(s) no histórico')+'</span></div></article>'+
     '<section class="equipment-specs">'+details.map(d=>'<div><small>'+esc(d[0])+'</small><b>'+esc(d[1])+'</b></div>').join("")+'</section>'+
+    '<button class="primary full registry-new-os" type="button" data-new-equipment-os>＋ Nova OS neste equipamento</button>'+
     '<section class="registry-section"><div class="section-title"><div><b>Prontuário técnico</b><small>Todo o histórico deste equipamento</small></div><strong>'+moneyValue(e.total)+'</strong></div><div class="mini-os-list">'+e.orders.slice().reverse().map(orderHistoryCard).join("")+'</div></section>';
   setViewDirect("equipment-detail");
   target.querySelector(".registry-back").onclick=()=>go("equipment");
+  target.querySelector("[data-new-equipment-os]")?.addEventListener("click",()=>openNewOrder(e.customer,e.key));
 }
 document.addEventListener("click",e=>{
   const o=e.target.closest(".order-card[data-order],.mini-os[data-order]"); if(o){openOrderDetail(o.dataset.order);return}
