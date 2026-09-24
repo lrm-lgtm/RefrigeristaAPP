@@ -11,10 +11,11 @@ const dialog=document.getElementById("newOsDialog");
 const form=document.getElementById("osForm");
 const steps=[...document.querySelectorAll(".step")];
 const stepDots=[...document.querySelectorAll(".steps i")];
+let currentView="home";
 
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]))}
 function notify(msg){toast.textContent=msg;toast.classList.add("show");clearTimeout(window.__t);window.__t=setTimeout(()=>toast.classList.remove("show"),2200)}
-function go(name){views.forEach(v=>v.classList.toggle("active",v.dataset.view===name));nav.forEach(b=>b.classList.toggle("active",b.dataset.go===name));scrollTo({top:0,behavior:"smooth"})}
+function go(name){currentView=name;views.forEach(v=>v.classList.toggle("active",v.dataset.view===name));nav.forEach(b=>b.classList.toggle("active",b.dataset.go===name));scrollTo({top:0,behavior:"smooth"})}
 document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.go)));
 
 function orderDetails(){try{return JSON.parse(localStorage.getItem("refrig-order-details")||"{}")}catch{return {}}}
