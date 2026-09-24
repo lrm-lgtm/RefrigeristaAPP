@@ -146,3 +146,9 @@
 .media-item figcaption{padding:7px 8px;font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .media-empty,.media-loading{grid-column:1/-1;padding:15px;border-radius:12px;background:#f5f8fa;color:var(--muted);font-size:12px;text-align:center}
 @media(max-width:520px){.media-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+
+/* v7 — reaproveitamento de cliente/equipamento */
+#existingEquipmentWrap{padding:12px;border:1px solid #cfe0e7;border-radius:14px;background:#f4f9fb}
+#existingEquipmentWrap select{background:#fff}
+.registry-new-os{margin-top:10px}
