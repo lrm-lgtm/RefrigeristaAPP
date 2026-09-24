@@ -8,7 +8,7 @@
   <title>Luiz Miguel | Refrigeração</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=6">
+  <link rel="stylesheet" href="./styles.css?v=7">
 </head>
 <body>
   <header class="topbar">
@@ -95,6 +95,10 @@
       </section>
 
       <section class="step" data-step="2">
+        <label id="existingEquipmentWrap" hidden>Equipamento já cadastrado
+          <select name="existingEquipment" id="existingEquipmentSelect"><option value="">Cadastrar novo equipamento</option></select>
+          <span class="field-note">Selecione para manter o histórico no mesmo prontuário.</span>
+        </label>
         <label>Tipo de equipamento
           <select name="type"><option>Ar-condicionado Split</option><option>Geladeira</option><option>Freezer</option><option>Câmara fria</option><option>Expositor</option><option>Outro</option></select>
         </label>
@@ -131,6 +135,6 @@
     </form>
   </dialog>
   <div class="toast" id="toast"></div>
-  <script src="./app.js?v=6"></script>
+  <script src="./app.js?v=7"></script>
 </body>
 </html>
