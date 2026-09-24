@@ -127,7 +127,7 @@ function equipmentRows(){
       voltage:o.voltage||"",gas:o.gas||"",room:o.room||"",serial:o.serial||"",
       orders:[],total:0,nextPreventive:""
     });
-    const row=map.get(key);
+    const row=map.get(id);
     for(const f of ["type","brand","model","capacity","voltage","gas","room","serial"]){ if(!row[f]&&o[f]) row[f]=o[f]; }
     row.orders.push({...o,customerId,equipmentId:id});
     row.total+=Number(o.laborValue||0)+Number(o.materialValue||0);
