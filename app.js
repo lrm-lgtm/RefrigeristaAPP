@@ -15,7 +15,14 @@ let currentView="home";
 
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]))}
 function notify(msg){toast.textContent=msg;toast.classList.add("show");clearTimeout(window.__t);window.__t=setTimeout(()=>toast.classList.remove("show"),2200)}
-function go(name){currentView=name;views.forEach(v=>v.classList.toggle("active",v.dataset.view===name));nav.forEach(b=>b.classList.toggle("active",b.dataset.go===name));scrollTo({top:0,behavior:"smooth"})}
+function go(name){
+  currentView=name;
+  views.forEach(v=>v.classList.toggle("active",v.dataset.view===name));
+  nav.forEach(b=>b.classList.toggle("active",b.dataset.go===name));
+  if(name==="clients")renderClients(document.getElementById("clientSearch")?.value||"");
+  if(name==="equipment")renderEquipment(document.getElementById("equipmentSearch")?.value||"");
+  scrollTo({top:0,behavior:"smooth"});
+}
 document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.go)));
 
 function orderDetails(){try{return JSON.parse(localStorage.getItem("refrig-order-details")||"{}")}catch{return {}}}
@@ -23,12 +30,75 @@ function saveOrderDetail(id,patch){const all=orderDetails();all[String(id)]={...
 function orders(){
   try{const base=[...JSON.parse(localStorage.getItem("refrig-orders")||"[]"),...demoOrders],detail=orderDetails();return base.map(o=>({...o,...(detail[String(o.id)]||{})}))}catch{return demoOrders}
 }
+
+function equipmentKeyOf(o){
+  return o.equipmentKey||[o.customer||"",o.serial||"",o.equipment||"",o.room||""].join("|").toLowerCase();
+}
+function customerRows(){
+  const map=new Map();
+  for(const o of orders()){
+    const key=(o.customer||"Cliente").trim();
+    if(!map.has(key)) map.set(key,{name:key,phone:o.phone||"",orders:[],equipmentKeys:new Set(),total:0});
+    const row=map.get(key);
+    row.phone=row.phone||o.phone||"";
+    row.orders.push(o);
+    row.equipmentKeys.add(equipmentKeyOf(o));
+    row.total+=Number(o.laborValue||0)+Number(o.materialValue||0);
+  }
+  return [...map.values()].sort((a,b)=>a.name.localeCompare(b.name,"pt-BR"));
+}
+function equipmentRows(){
+  const map=new Map();
+  for(const o of orders()){
+    const key=equipmentKeyOf(o);
+    if(!map.has(key)) map.set(key,{
+      key,customer:o.customer||"Cliente",name:o.equipment||"Equipamento",
+      type:o.equipmentType||"",brand:o.brand||"",model:o.model||"",capacity:o.capacity||"",
+      voltage:o.voltage||"",gas:o.gas||"",room:o.room||"",serial:o.serial||"",
+      orders:[],total:0,nextPreventive:""
+    });
+    const row=map.get(key);
+    for(const f of ["type","brand","model","capacity","voltage","gas","room","serial"]){ if(!row[f]&&o[f]) row[f]=o[f]; }
+    row.orders.push(o);
+    row.total+=Number(o.laborValue||0)+Number(o.materialValue||0);
+    if(o.nextPreventive) row.nextPreventive=o.nextPreventive;
+  }
+  return [...map.values()].sort((a,b)=>a.customer.localeCompare(b.customer,"pt-BR")||a.name.localeCompare(b.name,"pt-BR"));
+}
+function initials(name){return String(name||"?").trim().split(/\s+/).slice(0,2).map(x=>x[0]||"").join("").toUpperCase()}
+function renderClients(filter=""){
+  const target=document.getElementById("clientList"); if(!target)return;
+  const q=String(filter||"").toLowerCase().trim();
+  const rows=customerRows().filter(c=>!q||[c.name,c.phone,...c.orders.map(o=>o.equipment)].join(" ").toLowerCase().includes(q));
+  target.innerHTML=rows.length?rows.map(c=>
+    '<article class="client-card clickable-card" data-client="'+esc(encodeURIComponent(c.name))+'">'+
+      '<div class="avatar">'+esc(initials(c.name))+'</div><div><b>'+esc(c.name)+'</b>'+
+      '<small>'+c.equipmentKeys.size+' equipamento(s) · '+c.orders.length+' atendimento(s)</small>'+
+      (c.phone?'<em>'+esc(c.phone)+'</em>':'')+'</div><span>›</span></article>'
+  ).join(""):'<div class="empty-state">Nenhum cliente encontrado.</div>';
+}
+function renderEquipment(filter=""){
+  const target=document.getElementById("equipmentList"); if(!target)return;
+  const q=String(filter||"").toLowerCase().trim();
+  const rows=equipmentRows().filter(e=>!q||[e.customer,e.name,e.brand,e.model,e.serial,e.room].join(" ").toLowerCase().includes(q));
+  target.innerHTML=rows.length?rows.map(e=>
+    '<article class="equipment-card clickable-card" data-equipment="'+esc(encodeURIComponent(e.key))+'">'+
+      '<div class="equip-icon">'+(String(e.type||e.name).toLowerCase().includes("câmara")?"▣":"❄")+'</div>'+
+      '<div><b>'+esc(e.name)+'</b><small>'+esc(e.customer)+(e.room?' · '+esc(e.room):'')+'</small>'+
+      '<em>'+esc([e.gas,e.voltage,e.serial&&("S/N "+e.serial)].filter(Boolean).join(" · ")||e.orders.length+" atendimento(s)")+'</em></div><span>›</span></article>'
+  ).join(""):'<div class="empty-state">Nenhum equipamento encontrado.</div>';
+}
+
 function card(o){return '<article class="order-card" data-order="'+esc(o.id)+'"><div class="order-top"><div><small>OS #'+esc(o.id)+'</small><b>'+esc(o.customer)+'</b></div><span class="tag '+(o.tag==="wait"?"wait":o.tag==="done"?"done":"")+'">'+esc(o.status)+'</span></div><p><b>'+esc(o.equipment)+'</b><br>'+esc(o.complaint)+'</p><div class="order-footer"><span>'+esc(o.when)+'</span><b>'+esc(o.value)+'</b></div></article>'}
+function refreshCustomerOptions(){const d=document.getElementById("customerOptions");if(d)d.innerHTML=customerRows().map(c=>'<option value="'+esc(c.name)+'"></option>').join("")}
 function render(){
  const list=orders();
  document.getElementById("homeOrders").innerHTML=list.slice(0,3).map(card).join("");
  document.getElementById("orderList").innerHTML=list.map(card).join("");
- document.getElementById("openCount").textContent=list.length;
+ document.getElementById("openCount").textContent=list.filter(o=>o.tag!=="done").length;
+ renderClients(document.getElementById("clientSearch")?.value||"");
+ renderEquipment(document.getElementById("equipmentSearch")?.value||"");
+ refreshCustomerOptions();
 }
 render();
 
@@ -43,7 +113,28 @@ document.querySelectorAll("[data-prev]").forEach(b=>b.addEventListener("click",(
 form.addEventListener("submit",e=>{
   e.preventDefault();
   const fd=new FormData(form);
-  const item={id:String(Date.now()).slice(-6),customer:fd.get("customer")||"Cliente",equipment:[fd.get("brand"),fd.get("model"),fd.get("capacity")].filter(Boolean).join(" ")||fd.get("type")||"Equipamento",status:"Aberta",tag:"wait",complaint:fd.get("complaint")||"Sem relato inicial",when:"Agora",value:"A orçar",initialPhotos:(form.elements.photos?.files||[]).length};
+  const equipmentText=[fd.get("brand"),fd.get("model"),fd.get("capacity")].filter(Boolean).join(" ")||fd.get("type")||"Equipamento";
+  const equipmentKey=[fd.get("customer"),fd.get("serial")||"",equipmentText,fd.get("room")||""].join("|").toLowerCase();
+  const item={
+    id:String(Date.now()).slice(-6),
+    customer:String(fd.get("customer")||"Cliente").trim(),
+    phone:String(fd.get("phone")||"").trim(),
+    equipment:equipmentText,
+    equipmentKey,
+    equipmentType:String(fd.get("type")||"").trim(),
+    brand:String(fd.get("brand")||"").trim(),
+    model:String(fd.get("model")||"").trim(),
+    capacity:String(fd.get("capacity")||"").trim(),
+    voltage:String(fd.get("voltage")||"").trim(),
+    gas:String(fd.get("gas")||"").trim(),
+    room:String(fd.get("room")||"").trim(),
+    serial:String(fd.get("serial")||"").trim(),
+    status:"Aberta",tag:"wait",
+    complaint:fd.get("complaint")||"Sem relato inicial",
+    when:"Agora",value:"A orçar",
+    initialPhotos:(form.elements.photos?.files||[]).length,
+    createdAt:new Date().toISOString()
+  };
   const saved=JSON.parse(localStorage.getItem("refrig-orders")||"[]");saved.unshift(item);localStorage.setItem("refrig-orders",JSON.stringify(saved));render();dialog.close();go("orders");notify("OS criada nesta demonstração.");
 });
 const q=document.getElementById("orderSearch");q?.addEventListener("input",()=>{const term=q.value.toLowerCase();document.getElementById("orderList").innerHTML=orders().filter(o=>(o.customer+" "+o.equipment+" "+o.id).toLowerCase().includes(term)).map(card).join("")});
@@ -93,7 +184,45 @@ function openOrderDetail(id){
   detailContent.querySelector("[data-finish]")?.addEventListener("click",()=>openFinish(o));
   detailContent.querySelector("[data-reopen]")?.addEventListener("click",()=>{saveOrderDetail(o.id,{status:"Em atendimento",tag:"service"});render();openOrderDetail(o.id);notify("OS reaberta.")});
 }
-document.addEventListener("click",e=>{const c=e.target.closest(".order-card[data-order]");if(c)openOrderDetail(c.dataset.order)});
+function orderHistoryCard(o){
+  const total=Number(o.laborValue||0)+Number(o.materialValue||0);
+  return '<article class="mini-os" data-order="'+esc(o.id)+'"><div><small>OS #'+esc(o.id)+' · '+esc(o.when||"")+'</small><b>'+esc(o.service||o.complaint||"Atendimento")+'</b><span>'+esc(o.equipment||"Equipamento")+'</span></div><div><span class="tag '+(o.tag==="done"?"done":o.tag==="wait"?"wait":"")+'">'+esc(o.status||"Aberta")+'</span><strong>'+(total?moneyValue(total):esc(o.value||"A orçar"))+'</strong></div></article>';
+}
+function openClientDetail(encodedName){
+  const name=decodeURIComponent(encodedName),c=customerRows().find(x=>x.name===name); if(!c)return;
+  const eq=equipmentRows().filter(e=>e.customer===name);
+  const target=document.getElementById("clientDetailContent");
+  target.innerHTML=
+    '<article class="registry-hero"><button class="registry-back" type="button">‹</button><div><small>Cliente</small><h1>'+esc(c.name)+'</h1><span>'+esc(c.phone||"Sem telefone cadastrado")+'</span></div></article>'+
+    '<div class="registry-kpis"><div><small>Equipamentos</small><b>'+eq.length+'</b></div><div><small>Atendimentos</small><b>'+c.orders.length+'</b></div><div><small>Histórico</small><b>'+moneyValue(c.total)+'</b></div></div>'+
+    '<section class="registry-section"><div class="section-title"><div><b>Equipamentos</b><small>Prontuários deste cliente</small></div></div>'+
+      (eq.length?eq.map(e=>'<article class="equipment-card clickable-card" data-equipment="'+esc(encodeURIComponent(e.key))+'"><div class="equip-icon">❄</div><div><b>'+esc(e.name)+'</b><small>'+esc(e.room||"Local não informado")+'</small><em>'+esc([e.gas,e.voltage].filter(Boolean).join(" · ")||e.orders.length+" atendimento(s)")+'</em></div><span>›</span></article>').join(""):'<div class="empty-state">Nenhum equipamento cadastrado.</div>')+
+    '</section>'+
+    '<section class="registry-section"><div class="section-title"><div><b>Histórico de atendimentos</b><small>Valores, serviços e status</small></div></div><div class="mini-os-list">'+c.orders.slice().reverse().map(orderHistoryCard).join("")+'</div></section>';
+  setViewDirect("client-detail");
+  target.querySelector(".registry-back").onclick=()=>go("clients");
+}
+function openEquipmentDetail(encodedKey){
+  const key=decodeURIComponent(encodedKey),e=equipmentRows().find(x=>x.key===key); if(!e)return;
+  const target=document.getElementById("equipmentDetailContent");
+  const details=[
+    e.room&&["Ambiente",e.room],e.type&&["Tipo",e.type],e.brand&&["Marca",e.brand],e.model&&["Modelo",e.model],
+    e.capacity&&["Capacidade",e.capacity],e.gas&&["Refrigerante",e.gas],e.voltage&&["Tensão",e.voltage],e.serial&&["Nº de série",e.serial]
+  ].filter(Boolean);
+  target.innerHTML=
+    '<article class="registry-hero equipment-hero"><button class="registry-back" type="button">‹</button><div><small>Equipamento · '+esc(e.customer)+'</small><h1>'+esc(e.name)+'</h1><span>'+(e.nextPreventive?'Próxima preventiva: '+esc(e.nextPreventive):e.orders.length+' atendimento(s) no histórico')+'</span></div></article>'+
+    '<section class="equipment-specs">'+details.map(d=>'<div><small>'+esc(d[0])+'</small><b>'+esc(d[1])+'</b></div>').join("")+'</section>'+
+    '<section class="registry-section"><div class="section-title"><div><b>Prontuário técnico</b><small>Todo o histórico deste equipamento</small></div><strong>'+moneyValue(e.total)+'</strong></div><div class="mini-os-list">'+e.orders.slice().reverse().map(orderHistoryCard).join("")+'</div></section>';
+  setViewDirect("equipment-detail");
+  target.querySelector(".registry-back").onclick=()=>go("equipment");
+}
+document.addEventListener("click",e=>{
+  const o=e.target.closest(".order-card[data-order],.mini-os[data-order]"); if(o){openOrderDetail(o.dataset.order);return}
+  const c=e.target.closest(".client-card[data-client]"); if(c){openClientDetail(c.dataset.client);return}
+  const eq=e.target.closest(".equipment-card[data-equipment]"); if(eq){openEquipmentDetail(eq.dataset.equipment);return}
+});
+document.getElementById("clientSearch")?.addEventListener("input",e=>renderClients(e.target.value));
+document.getElementById("equipmentSearch")?.addEventListener("input",e=>renderEquipment(e.target.value));
 
 function resizeSignature(){
   if(!signatureCanvas)return;
