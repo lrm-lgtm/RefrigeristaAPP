@@ -20,7 +20,28 @@ revoke all on function private.is_app_owner() from public;
 grant usage on schema private to authenticated;
 grant execute on function private.is_app_owner() to authenticated;
 
--- Remove a função equivalente do schema exposto à API.
+-- Primeiro removemos as políticas antigas que ainda dependem da função pública.
+do $
+declare
+  tbl text;
+begin
+  foreach tbl in array array[
+    'customers','customer_sites','equipments','work_orders',
+    'service_media','work_order_items','work_order_closings'
+  ]
+  loop
+    execute format('drop policy if exists "app_owner_all" on public.%I', tbl);
+  end loop;
+end $;
+
+drop policy if exists "app_owner_read_activity" on public.activity_log;
+drop policy if exists "app_owner_insert_activity" on public.activity_log;
+drop policy if exists "refrigerista_evidence_read" on storage.objects;
+drop policy if exists "refrigerista_evidence_insert" on storage.objects;
+drop policy if exists "refrigerista_evidence_update" on storage.objects;
+drop policy if exists "refrigerista_evidence_delete" on storage.objects;
+
+-- Agora a função equivalente do schema exposto à API pode ser removida.
 drop function if exists public.is_app_owner();
 
 drop policy if exists "owner_read_self" on public.app_owner;
