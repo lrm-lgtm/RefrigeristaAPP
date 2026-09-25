@@ -366,3 +366,39 @@
   [data-view="visits"] #visitList{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(min-width:1320px){[data-view="visits"] #visitList{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+
+/* v21 — ações do cabeçalho refinadas */
+.top-actions{display:flex;align-items:center;gap:8px}
+.top-action{
+  width:42px;height:42px;
+  display:grid;place-items:center;
+  border:1px solid #dce7ec;
+  border-radius:13px;
+  background:#fff;
+  color:var(--blue);
+  padding:0;
+  box-shadow:0 2px 8px rgba(7,61,89,.045);
+  transition:background .14s ease,border-color .14s ease,transform .12s ease,box-shadow .14s ease;
+}
+.top-action svg{
+  width:21px;height:21px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.top-action:active{transform:scale(.95)}
+.top-action:hover{background:#f7fafb;border-color:#c8d9e1}
+.install-action{
+  background:#edf5f8;
+  border-color:#d5e6ed;
+}
+.menu-action{background:#fff}
+@media(max-width:420px){
+  .topbar{padding-left:14px;padding-right:14px}
+  .top-actions{gap:6px}
+  .top-action{width:39px;height:39px;border-radius:12px}
+  .top-action svg{width:20px;height:20px}
+}
