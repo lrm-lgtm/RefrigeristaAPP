@@ -34,11 +34,14 @@ function lastSyncText(){
 }
 async function refreshCloudSummary(){
   const local=document.getElementById("cloudLocalCount"),remote=document.getElementById("cloudRemoteCount"),last=document.getElementById("cloudLastSync");
-  if(local)local.textContent=rawLocalOrders().length;
+  if(local)local.textContent=rawLocalOrders().length+rawLocalVisits().length;
   if(last)last.textContent=lastSyncText();
   if(remote&&cloudAuthorized){
-    const {count,error}=await cloud.from("work_orders").select("*",{count:"exact",head:true});
-    remote.textContent=error?"—":String(count??0);
+    const [wo,vs]=await Promise.all([
+      cloud.from("work_orders").select("*",{count:"exact",head:true}),
+      cloud.from("visits").select("*",{count:"exact",head:true})
+    ]);
+    remote.textContent=wo.error||vs.error?"—":String((wo.count??0)+(vs.count??0));
   }
 }
 
@@ -141,6 +144,9 @@ document.getElementById("cloudLogoutBtn")?.addEventListener("click",async()=>{
 function rawLocalOrders(){
   try{return JSON.parse(localStorage.getItem("refrig-orders")||"[]")}catch{return []}
 }
+function rawLocalVisits(){
+  try{return JSON.parse(localStorage.getItem("refrig-visits")||"[]")}catch{return []}
+}
 function localOrdersForSync(){
   const ids=new Set(rawLocalOrders().map(o=>String(o.id)));
   return orders().filter(o=>ids.has(String(o.id)));
@@ -210,18 +216,19 @@ async function uploadMediaFor(o,workOrderId){
   }
 }
 
-async function invokeGoogleCalendarSync(workOrderId){
+async function invokeGoogleCalendarSync(workOrderId=null,visitId=null){
   if(!googleCalendarState.connected||!cloud)return {skipped:true};
-  const {data,error}=await cloud.functions.invoke("google-calendar-sync",{body:{work_order_id:workOrderId}});
+  const body=workOrderId?{work_order_id:workOrderId}:{visit_id:visitId};
+  const {data,error}=await cloud.functions.invoke("google-calendar-sync",{body});
   if(error)throw error;
   return data||{};
 }
 async function uploadLocalData(){
   if(!cloudAuthorized){notify("Entre na nuvem primeiro.");return}
   ensureSyncKeys();
-  const list=localOrdersForSync();
-  if(!list.length){notify("Não há atendimentos reais neste aparelho para enviar.");return}
-  if(!confirm("Enviar "+list.length+" atendimento(s) deste aparelho para a nuvem?"))return;
+  const list=localOrdersForSync(),visitList=rawLocalVisits();
+  if(!list.length&&!visitList.length){notify("Não há dados reais neste aparelho para enviar.");return}
+  if(!confirm("Enviar "+list.length+" atendimento(s) e "+visitList.length+" visita(s) deste aparelho para a nuvem?"))return;
   cloudStatus("Enviando dados…","ok");
   try{
     for(const o of list){
@@ -267,6 +274,24 @@ async function uploadLocalData(){
         catch(err){console.warn("Google Calendar não sincronizado",err)}
       }
     }
+    for(const v of visitList){
+      let customerId=null;
+      if(v.customerId){
+        customerId=await upsertId("customers",{
+          external_key:v.customerId,name:v.customerName||"Cliente",phone:v.phone||null,notes:null
+        });
+      }
+      const visitId=await upsertId("visits",{
+        external_key:v.syncKey||v.id,customer_id:customerId,customer_name:v.customerName||"Contato",
+        phone:v.phone||null,address:v.address||null,title:v.title||"Visita",notes:v.notes||null,
+        scheduled_at:isoDateTime(v.scheduledAt)||new Date().toISOString(),
+        duration_minutes:Number(v.durationMinutes||60),status:v.status||"scheduled",
+        created_by:cloudSession.user.id
+      });
+      if(googleCalendarState.connected){
+        try{await invokeGoogleCalendarSync(null,visitId)}catch(err){console.warn("Visita não sincronizada no Google",err)}
+      }
+    }
     setLastSync("envio para nuvem");
     await refreshCloudSummary();
     cloudStatus("Envio concluído. Nuvem atualizada.","ok");
@@ -300,10 +325,11 @@ async function downloadCloudData(){
       cloud.from("equipments").select("*"),
       cloud.from("work_orders").select("*").order("opened_at",{ascending:false}),
       cloud.from("work_order_closings").select("*"),
-      cloud.from("service_media").select("*")
+      cloud.from("service_media").select("*"),
+      cloud.from("visits").select("*").order("scheduled_at",{ascending:true})
     ]);
     for(const r of results)if(r.error)throw r.error;
-    const [customersR,sitesR,equipR,ordersR,closingsR,mediaR]=results;
+    const [customersR,sitesR,equipR,ordersR,closingsR,mediaR,visitsR]=results;
     const customers=new Map(customersR.data.map(x=>[x.id,x]));
     const sites=new Map(sitesR.data.map(x=>[x.id,x]));
     const equipments=new Map(equipR.data.map(x=>[x.id,x]));
@@ -349,6 +375,12 @@ async function downloadCloudData(){
     }
     localStorage.setItem("refrig-orders",JSON.stringify(local));
     localStorage.setItem("refrig-order-details","{}");
+    localStorage.setItem("refrig-visits",JSON.stringify((visitsR.data||[]).map(v=>({
+      id:v.external_key||v.id,syncKey:v.external_key||v.id,customerId:customers.get(v.customer_id)?.external_key||"",
+      customerName:v.customer_name||"Contato",phone:v.phone||"",address:v.address||"",title:v.title||"Visita",
+      notes:v.notes||"",scheduledAt:v.scheduled_at||"",durationMinutes:Number(v.duration_minutes||60),
+      status:v.status||"scheduled",createdAt:v.created_at||"",updatedAt:v.updated_at||""
+    }))));
     localStorage.setItem("refrig-initialized","1");
     await clearMediaStore();
     for(const m of mediaR.data){
@@ -475,13 +507,12 @@ document.getElementById("googleCalendarDisconnectBtn")?.addEventListener("click"
 document.getElementById("googleCalendarSyncBtn")?.addEventListener("click",async()=>{
   if(!googleCalendarState.connected)return;
   try{
-    const {data,error}=await cloud.from("work_orders").select("id");
-    if(error)throw error;
+    const [wo,vs]=await Promise.all([cloud.from("work_orders").select("id"),cloud.from("visits").select("id")]);
+    if(wo.error||vs.error)throw wo.error||vs.error;
     let done=0;
-    for(const row of data||[]){
-      try{await invokeGoogleCalendarSync(row.id);done++}catch(err){console.warn(err)}
-    }
-    notify("Agenda sincronizada: "+done+" atendimento(s).");
+    for(const row of wo.data||[]){try{await invokeGoogleCalendarSync(row.id,null);done++}catch(err){console.warn(err)}}
+    for(const row of vs.data||[]){try{await invokeGoogleCalendarSync(null,row.id);done++}catch(err){console.warn(err)}}
+    notify("Agenda sincronizada: "+done+" registro(s).");
   }catch(err){console.error(err);notify("Falha ao sincronizar a agenda.")}
 });
 
