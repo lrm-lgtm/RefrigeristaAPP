@@ -18,7 +18,7 @@ Cliente -> Equipamento -> Atendimento -> Diagnóstico/serviço
 
 ## Frontend/PWA
 
-Estado atual: piloto local-first com nuvem manual, versão de cache v18.
+Estado atual: piloto local-first com nuvem manual, versão de cache v20.
 
 Implementado:
 
@@ -134,3 +134,33 @@ Edge Functions ativas:
 - `google-calendar-disconnect`
 
 Gate externo atual: criar um OAuth Client do tipo **Web application** no Google Cloud e cadastrar o redirect URI documentado em `docs/GOOGLE_CALENDAR_SETUP.md`. O Client ID e Client Secret serão gravados no Supabase Vault e nunca no GitHub.
+
+
+## Visitas / compromissos independentes
+
+O aplicativo agora separa **visita/compromisso** de **atendimento técnico**.
+
+Uma visita pode existir sem equipamento, diagnóstico, valores ou ordem de serviço. Campos principais:
+
+- cliente/contato;
+- telefone;
+- tipo do compromisso;
+- endereço;
+- data/hora;
+- duração;
+- observação;
+- status agendado/concluído/cancelado.
+
+Recursos:
+
+- botão rápido **Nova visita** no início;
+- tela própria **Visitas e compromissos**;
+- filtros;
+- vínculo opcional com cliente já existente;
+- visitas aparecem no histórico do cliente;
+- uma visita pode posteriormente **Virar atendimento** sem redigitar os dados;
+- backup/restauração inclui visitas;
+- sincronização Supabase inclui visitas;
+- Google Calendar trata visitas como eventos independentes;
+- concluir uma visita não cria OS automaticamente;
+- cancelar a visita remove o evento Google vinculado quando sincronizado.
