@@ -8,7 +8,7 @@
   <title>Luiz Miguel | Refrigeração</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=15">
+  <link rel="stylesheet" href="./styles.css?v=16">
 </head>
 <body>
   <header class="topbar">
@@ -215,7 +215,8 @@
         </div>
         <div id="cloudLoggedIn" hidden>
           <strong id="cloudUser"></strong>
-          <small class="settings-note">Banco real começa limpo. Nada local é enviado automaticamente.</small>
+          <div class="cloud-summary"><span><b id="cloudLocalCount">0</b><small>neste aparelho</small></span><span><b id="cloudRemoteCount">0</b><small>na nuvem</small></span></div>
+          <small class="settings-note" id="cloudLastSync">Banco real começa limpo. Nada local é enviado automaticamente.</small>
           <div class="settings-actions">
             <button type="button" class="primary full" id="cloudUploadBtn">Enviar dados deste aparelho</button>
             <button type="button" class="secondary full" id="cloudDownloadBtn">Atualizar este aparelho pela nuvem</button>
@@ -226,13 +227,14 @@
       <div class="settings-actions">
         <button type="button" class="secondary full" id="exportBackup">Exportar backup completo</button>
         <label class="secondary full import-label">Restaurar backup<input id="importBackup" type="file" accept="application/json,.json"></label>
+        <button type="button" class="danger-outline full" id="clearLocalData">Limpar dados deste aparelho</button>
       </div>
       <small class="settings-note">O backup inclui atendimentos, histórico, fotos e assinaturas salvas neste navegador.</small>
     </form>
   </dialog>
   <div class="toast" id="toast"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./app.js?v=15"></script>
-  <script src="./cloud.js?v=15"></script>
+  <script src="./app.js?v=16"></script>
+  <script src="./cloud.js?v=16"></script>
 </body>
 </html>
