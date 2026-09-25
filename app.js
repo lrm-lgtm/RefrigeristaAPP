@@ -176,7 +176,7 @@ function renderEquipment(filter=""){
 
 function card(o){
   const pay=o.tag==="done"?'<span class="pay-mini '+esc(o.paymentStatus||"pending")+'">'+esc(paymentStatusLabel(o.paymentStatus))+'</span>':"";
-  return '<article class="order-card" data-order="'+esc(o.id)+'"><div class="order-top"><div><small>Atendimento #'+esc(o.id)+'</small><b>'+esc(o.customer)+'</b></div><span class="tag '+(o.tag==="wait"?"wait":o.tag==="done"?"done":"")+'">'+esc(o.status)+'</span></div><p><b>'+esc(o.equipment)+'</b><br>'+esc(o.complaint)+'</p><div class="order-footer"><span>'+esc(o.when)+'</span><div class="order-money">'+pay+'<b>'+esc(o.value)+'</b></div></div></article>'
+  return '<article class="order-card" data-order="'+esc(o.id)+'"><div class="order-top"><div><small>Atendimento #'+esc(o.id)+(o.attendanceType?' · '+esc(o.attendanceType):'')+'</small><b>'+esc(o.customer)+'</b></div><span class="tag '+(o.tag==="wait"?"wait":o.tag==="done"?"done":"")+'">'+esc(o.status)+'</span></div><p><b>'+esc(o.equipment)+'</b><br>'+esc(o.complaint)+'</p><div class="order-footer"><span>'+esc(orderWhenLabel(o))+'</span><div class="order-money">'+pay+'<b>'+esc(o.value)+'</b></div></div></article>'
 }
 function refreshCustomerOptions(){const d=document.getElementById("customerOptions");if(d)d.innerHTML=customerRows().map(c=>'<option value="'+esc(c.name)+'"></option>').join("")}
 function orderMatchesFilter(o,filter){
@@ -187,7 +187,7 @@ function orderMatchesFilter(o,filter){
 }
 function renderOrderList(){
   const q=String(document.getElementById("orderSearch")?.value||"").toLowerCase().trim();
-  const list=orders().filter(o=>orderMatchesFilter(o,orderFilter)).filter(o=>!q||(o.customer+" "+o.equipment+" "+o.id+" "+(o.complaint||"")).toLowerCase().includes(q));
+  const list=orders().filter(o=>orderMatchesFilter(o,orderFilter)).filter(o=>!q||(o.customer+" "+o.equipment+" "+o.id+" "+(o.complaint||"")+" "+(o.attendanceType||"")+" "+(o.serial||"")).toLowerCase().includes(q));
   const target=document.getElementById("orderList"); if(target)target.innerHTML=list.length?list.map(card).join(""):'<div class="empty-state">Nenhum atendimento neste filtro.</div>';
   document.querySelectorAll("[data-order-filter]").forEach(b=>b.classList.toggle("active",b.dataset.orderFilter===orderFilter));
 }
@@ -197,7 +197,8 @@ function renderPreventives(list){
   target.innerHTML=rows.length?rows.map(o=>{
     const [y,m,d]=String(o.nextPreventive).slice(0,10).split("-");
     const month=({01:"JAN",02:"FEV",03:"MAR",04:"ABR",05:"MAI",06:"JUN",07:"JUL",08:"AGO",09:"SET",10:"OUT",11:"NOV",12:"DEZ"})[m]||m;
-    return '<div data-order="'+esc(o.id)+'"><span class="date">'+esc(d+" "+month)+'</span><p><b>'+esc(o.customer)+'</b><small>'+esc(o.equipment)+' · retorno recomendado</small></p><span class="preventive-arrow">›</span></div>';
+    const overdue=String(o.nextPreventive)<new Date().toISOString().slice(0,10);
+    return '<div data-order="'+esc(o.id)+'" class="'+(overdue?'overdue':'')+'"><span class="date">'+esc(d+" "+month)+'</span><p><b>'+esc(o.customer)+'</b><small>'+esc(o.equipment)+' · '+(overdue?'retorno vencido':'retorno recomendado')+'</small></p><span class="preventive-arrow">›</span></div>';
   }).join(""):'<div class="preventive-empty">Nenhuma preventiva agendada ainda.</div>';
 }
 function render(){
@@ -268,7 +269,13 @@ form.addEventListener("submit",async e=>{
   const existingEquipment=fd.get("existingEquipment")?equipmentRows().find(x=>x.id===String(fd.get("existingEquipment"))):null;
   const customerName=String(fd.get("customer")||"Cliente").trim();
   const phone=String(fd.get("phone")||"").trim();
-  const customerId=existingEquipment?.customerId||stableId("cus",[customerName,phone.replace(/\D/g,"")].join("|"));
+  const phoneDigits=phone.replace(/\D/g,"");
+  const matchedCustomer=customerRows().find(c=>{
+    const samePhone=phoneDigits&&String(c.phone||"").replace(/\D/g,"")===phoneDigits;
+    const sameName=normalizeKey(c.name)===normalizeKey(customerName);
+    return samePhone||sameName;
+  });
+  const customerId=existingEquipment?.customerId||matchedCustomer?.id||stableId("cus",[customerName,phoneDigits].join("|"));
   const equipmentKey=existingEquipment?.key||[customerName,fd.get("serial")||"",equipmentText,fd.get("room")||""].join("|").toLowerCase();
   const equipmentId=existingEquipment?.id||stableId("eqp",[customerId,fd.get("serial")||"",equipmentText,fd.get("room")||""].join("|"));
   const item={
@@ -291,6 +298,8 @@ form.addEventListener("submit",async e=>{
     serial:String(fd.get("serial")||"").trim(),
     equipmentNotes:String(fd.get("equipmentNotes")||"").trim(),
     status:"Aberta",tag:"wait",
+    attendanceType:String(fd.get("attendanceType")||"Manutenção corretiva"),
+    scheduledAt:String(fd.get("scheduledAt")||""),
     complaint:fd.get("complaint")||"Sem relato inicial",
     when:"Agora",value:"A orçar",
     initialPhotos:(form.elements.photos?.files||[]).length,
@@ -310,7 +319,8 @@ document.querySelectorAll("[data-jump-filter]").forEach(el=>el.addEventListener(
   orderFilter=el.dataset.jumpFilter;go("orders");renderOrderList();
 }));
 document.querySelector(".search-btn")?.addEventListener("click",()=>{
-  go("clients");setTimeout(()=>document.getElementById("clientSearch")?.focus(),120);
+  const d=document.getElementById("globalSearchDialog"),input=document.getElementById("globalSearchInput");
+  d?.showModal();if(input){input.value="";renderGlobalSearch("");setTimeout(()=>input.focus(),80)}
 });
 let deferredPrompt;window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;document.getElementById("installBtn").hidden=false});document.getElementById("installBtn")?.addEventListener("click",async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null});
 if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(()=>{});
@@ -328,6 +338,12 @@ let signatureDrawing=false,hasSignature=false,lastNonDetailView="orders";
 function moneyValue(v){return new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(Number(v||0))}
 function parseMoney(v){return Number(String(v||"").replace(/\./g,"").replace(",",".").replace(/[^0-9.-]/g,""))||0}
 function paymentStatusLabel(v){return ({paid:"Pago",partial:"Parcial",pending:"Pendente"})[v]||"Pendente"}
+function orderWhenLabel(o){
+  if(!o.scheduledAt)return o.when||"";
+  const d=new Date(o.scheduledAt);
+  if(Number.isNaN(d.getTime()))return o.when||"";
+  return d.toLocaleDateString("pt-BR")+" "+d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+}
 function formatDateBR(v){
   if(!v)return "";
   const [y,m,d]=String(v).slice(0,10).split("-");
@@ -355,7 +371,7 @@ function openOrderDetail(id){
   const total=Number(o.laborValue||0)+Number(o.materialValue||0);
   const photos=Number(o.initialPhotos||0)+Number(o.finishPhotos||0);
   detailContent.innerHTML=
-    '<article class="detail-hero"><button class="detail-back" type="button">‹</button><div><small>Atendimento #'+esc(o.id)+'</small><h1>'+esc(o.customer)+'</h1><span>'+esc(o.equipment)+'</span></div><span class="tag '+(o.tag==="done"?"done":o.tag==="wait"?"wait":"")+'">'+esc(o.status)+'</span></article>'+
+    '<article class="detail-hero"><button class="detail-back" type="button">‹</button><div><small>Atendimento #'+esc(o.id)+(o.attendanceType?' · '+esc(o.attendanceType):'')+'</small><h1>'+esc(o.customer)+'</h1><span>'+esc(o.equipment)+(o.scheduledAt?' · '+esc(orderWhenLabel(o)):'')+'</span></div><span class="tag '+(o.tag==="done"?"done":o.tag==="wait"?"wait":"")+'">'+esc(o.status)+'</span></article>'+
     '<div class="detail-grid">'+
       '<section class="info-card"><span>Problema relatado</span><b>'+esc(o.complaint||"Sem relato")+'</b></section>'+
       '<section class="info-card"><span>Diagnóstico</span><b>'+esc(o.diagnosis||"Ainda não informado")+'</b></section>'+
@@ -419,7 +435,7 @@ function openClientDetail(customerId){
   target.innerHTML=
     '<article class="registry-hero"><button class="registry-back" type="button">‹</button><div><small>Cliente</small><h1>'+esc(c.name)+'</h1><span>'+esc([c.phone,c.address].filter(Boolean).join(" · ")||"Sem telefone/endereço cadastrado")+'</span>'+(c.notes?'<p class="hero-note">'+esc(c.notes)+'</p>':'')+'</div></article>'+
     '<div class="registry-kpis"><div><small>Equipamentos</small><b>'+eq.length+'</b></div><div><small>Atendimentos</small><b>'+c.orders.length+'</b></div><div><small>Histórico</small><b>'+moneyValue(c.total)+'</b></div></div>'+
-    '<div class="client-actions"><button class="primary registry-new-os" type="button" data-new-client-os>＋ Novo atendimento</button>'+(c.phone?'<a class="secondary whatsapp-action" href="'+esc(whatsappHref(c.phone))+'" target="_blank" rel="noopener">WhatsApp</a>':'')+'</div>'+
+    '<div class="client-actions"><button class="primary registry-new-os" type="button" data-new-client-os>＋ Novo atendimento</button>'+(c.phone?'<a class="secondary whatsapp-action" href="'+esc(whatsappHref(c.phone))+'" target="_blank" rel="noopener">WhatsApp</a>':'')+'<button class="secondary" type="button" data-edit-client>Editar</button></div>'+
     '<section class="registry-section"><div class="section-title"><div><b>Equipamentos</b><small>Prontuários deste cliente</small></div></div>'+
       (eq.length?eq.map(e=>'<article class="equipment-card clickable-card" data-equipment="'+esc(e.id)+'"><div class="equip-icon">❄</div><div><b>'+esc(e.name)+'</b><small>'+esc(e.room||"Local não informado")+'</small><em>'+esc([e.gas,e.voltage].filter(Boolean).join(" · ")||e.orders.length+" atendimento(s)")+'</em></div><span>›</span></article>').join(""):'<div class="empty-state">Nenhum equipamento cadastrado.</div>')+
     '</section>'+
@@ -427,6 +443,7 @@ function openClientDetail(customerId){
   setViewDirect("client-detail");
   target.querySelector(".registry-back").onclick=()=>go("clients");
   target.querySelector("[data-new-client-os]")?.addEventListener("click",()=>openNewOrder(c.id));
+  target.querySelector("[data-edit-client]")?.addEventListener("click",()=>openEditClient(c));
 }
 function openEquipmentDetail(equipmentId){
   const e=equipmentRows().find(x=>x.id===equipmentId); if(!e)return;
@@ -438,11 +455,12 @@ function openEquipmentDetail(equipmentId){
   target.innerHTML=
     '<article class="registry-hero equipment-hero"><button class="registry-back" type="button">‹</button><div><small>Equipamento · '+esc(e.customer)+'</small><h1>'+esc(e.name)+'</h1><span>'+(e.nextPreventive?'Próxima preventiva: '+esc(e.nextPreventive):e.orders.length+' atendimento(s) no histórico')+'</span></div></article>'+
     '<section class="equipment-specs">'+details.map(d=>'<div><small>'+esc(d[0])+'</small><b>'+esc(d[1])+'</b></div>').join("")+'</section>'+(e.notes?'<section class="equipment-note"><small>Observação técnica</small><b>'+esc(e.notes)+'</b></section>':'')+
-    '<button class="primary full registry-new-os" type="button" data-new-equipment-os>＋ Novo atendimento neste equipamento</button>'+
+    '<div class="equipment-actions"><button class="primary registry-new-os" type="button" data-new-equipment-os>＋ Novo atendimento</button><button class="secondary" type="button" data-edit-equipment>Editar equipamento</button></div>'+
     '<section class="registry-section"><div class="section-title"><div><b>Prontuário técnico</b><small>Todo o histórico deste equipamento</small></div><strong>'+moneyValue(e.total)+'</strong></div><div class="mini-os-list">'+e.orders.slice().reverse().map(orderHistoryCard).join("")+'</div></section>';
   setViewDirect("equipment-detail");
   target.querySelector(".registry-back").onclick=()=>go("equipment");
   target.querySelector("[data-new-equipment-os]")?.addEventListener("click",()=>openNewOrder(e.customerId,e.id));
+  target.querySelector("[data-edit-equipment]")?.addEventListener("click",()=>openEditEquipment(e));
 }
 document.addEventListener("click",e=>{
   const o=e.target.closest(".order-card[data-order],.mini-os[data-order],.preventive [data-order]"); if(o){openOrderDetail(o.dataset.order);return}
@@ -552,4 +570,63 @@ document.getElementById("importBackup")?.addEventListener("change",async e=>{
     render();document.getElementById("settingsDialog").close();notify("Backup restaurado.");
   }catch{notify("Backup inválido ou corrompido.")}
   e.target.value="";
+});
+
+
+function baseOrdersForEdit(){
+  let local=JSON.parse(localStorage.getItem("refrig-orders")||"[]");
+  if(!local.length)local=demoOrders.map(o=>({...o}));
+  return local;
+}
+function updateBaseOrders(predicate,mutator){
+  const local=baseOrdersForEdit();
+  for(let i=0;i<local.length;i++){if(predicate(local[i]))local[i]=mutator({...local[i]})}
+  localStorage.setItem("refrig-orders",JSON.stringify(local));
+}
+const editClientDialog=document.getElementById("editClientDialog"),editClientForm=document.getElementById("editClientForm");
+function openEditClient(c){
+  editClientForm.reset();editClientForm.elements.customerId.value=c.id;editClientForm.elements.name.value=c.name||"";editClientForm.elements.phone.value=c.phone||"";editClientForm.elements.address.value=c.address||"";editClientForm.elements.notes.value=c.notes||"";editClientDialog.showModal();
+}
+editClientForm?.addEventListener("submit",e=>{
+  e.preventDefault();const fd=new FormData(editClientForm),id=String(fd.get("customerId"));
+  updateBaseOrders(o=>customerIdOf(o)===id,o=>({...o,customer:String(fd.get("name")||"").trim()||o.customer,phone:String(fd.get("phone")||"").trim(),address:String(fd.get("address")||"").trim(),customerNotes:String(fd.get("notes")||"").trim(),customerId:id}));
+  editClientDialog.close();render();openClientDetail(id);notify("Cliente atualizado.");
+});
+const editEquipmentDialog=document.getElementById("editEquipmentDialog"),editEquipmentForm=document.getElementById("editEquipmentForm");
+function openEditEquipment(e){
+  editEquipmentForm.reset();editEquipmentForm.elements.equipmentId.value=e.id;
+  const vals={type:e.type,brand:e.brand,model:e.model,capacity:e.capacity,voltage:e.voltage,gas:e.gas,room:e.room,serial:e.serial,notes:e.notes};
+  for(const [k,v] of Object.entries(vals))if(editEquipmentForm.elements[k])editEquipmentForm.elements[k].value=v||"";
+  editEquipmentDialog.showModal();
+}
+editEquipmentForm?.addEventListener("submit",ev=>{
+  ev.preventDefault();const fd=new FormData(editEquipmentForm),id=String(fd.get("equipmentId"));
+  updateBaseOrders(o=>equipmentIdOf(o)===id,o=>{
+    const brand=String(fd.get("brand")||"").trim(),model=String(fd.get("model")||"").trim(),capacity=String(fd.get("capacity")||"").trim();
+    return {...o,equipmentId:id,equipmentType:String(fd.get("type")||"").trim(),brand,model,capacity,voltage:String(fd.get("voltage")||"").trim(),gas:String(fd.get("gas")||"").trim(),room:String(fd.get("room")||"").trim(),serial:String(fd.get("serial")||"").trim(),equipmentNotes:String(fd.get("notes")||"").trim(),equipment:[brand,model,capacity].filter(Boolean).join(" ")||String(fd.get("type")||"Equipamento")};
+  });
+  editEquipmentDialog.close();render();openEquipmentDetail(id);notify("Equipamento atualizado.");
+});
+document.querySelectorAll("[data-edit-cancel]").forEach(b=>b.addEventListener("click",()=>b.closest("dialog")?.close()));
+
+
+function renderGlobalSearch(term){
+  const target=document.getElementById("globalSearchResults");if(!target)return;
+  const q=normalizeKey(term);
+  if(!q){target.innerHTML='<div class="empty-state">Digite algo para pesquisar.</div>';return}
+  const clients=customerRows().filter(c=>normalizeKey([c.name,c.phone,c.address,c.notes].join(" ")).includes(q)).slice(0,5);
+  const eqs=equipmentRows().filter(e=>normalizeKey([e.customer,e.name,e.brand,e.model,e.serial,e.room,e.notes].join(" ")).includes(q)).slice(0,6);
+  const ats=orders().filter(o=>normalizeKey([o.customer,o.phone,o.equipment,o.serial,o.complaint,o.diagnosis,o.service,o.materials,o.attendanceType].join(" ")).includes(q)).slice(0,8);
+  let out="";
+  if(clients.length)out+='<h3>Clientes</h3>'+clients.map(c=>'<button type="button" class="search-result" data-search-client="'+esc(c.id)+'"><span>'+esc(c.name)+'</span><small>'+esc([c.phone,c.address].filter(Boolean).join(" · "))+'</small></button>').join("");
+  if(eqs.length)out+='<h3>Equipamentos</h3>'+eqs.map(e=>'<button type="button" class="search-result" data-search-equipment="'+esc(e.id)+'"><span>'+esc(e.name)+'</span><small>'+esc(e.customer+(e.serial?" · S/N "+e.serial:""))+'</small></button>').join("");
+  if(ats.length)out+='<h3>Atendimentos</h3>'+ats.map(o=>'<button type="button" class="search-result" data-search-order="'+esc(o.id)+'"><span>'+esc(o.customer+" · "+o.equipment)+'</span><small>'+esc(o.complaint||o.service||"")+'</small></button>').join("");
+  target.innerHTML=out||'<div class="empty-state">Nada encontrado.</div>';
+}
+document.getElementById("globalSearchInput")?.addEventListener("input",e=>renderGlobalSearch(e.target.value));
+document.getElementById("globalSearchResults")?.addEventListener("click",e=>{
+  const c=e.target.closest("[data-search-client]"),eq=e.target.closest("[data-search-equipment]"),o=e.target.closest("[data-search-order]");
+  if(!c&&!eq&&!o)return;
+  document.getElementById("globalSearchDialog")?.close();
+  if(c)openClientDetail(c.dataset.searchClient);else if(eq)openEquipmentDetail(eq.dataset.searchEquipment);else openOrderDetail(o.dataset.searchOrder);
 });
