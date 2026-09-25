@@ -686,7 +686,7 @@ document.getElementById("globalSearchResults")?.addEventListener("click",e=>{
 });
 
 document.getElementById("clearLocalData")?.addEventListener("click",async()=>{
-  if(!confirm("Apagar atendimentos, fotos e assinaturas salvos neste aparelho? A nuvem não será apagada."))return;
+  if(!confirm("Apagar atendimentos, visitas, fotos e assinaturas salvos neste aparelho? A nuvem não será apagada."))return;
   localStorage.setItem("refrig-orders","[]");
   localStorage.setItem("refrig-order-details","{}");
   localStorage.setItem("refrig-visits","[]");
