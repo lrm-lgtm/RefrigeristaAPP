@@ -2,6 +2,7 @@ import fs from "node:fs";
 
 const html=fs.readFileSync("index.html","utf8");
 const app=fs.readFileSync("app.js","utf8");
+const cloud=fs.readFileSync("cloud.js","utf8");
 const sw=fs.readFileSync("sw.js","utf8");
 
 function assert(condition,message){
@@ -18,16 +19,23 @@ assert(html.includes("Novo atendimento"),"personal atendimento wording missing")
 
 const cssVersion=(html.match(/styles\.css\?v=(\d+)/)||[])[1];
 const appVersion=(html.match(/app\.js\?v=(\d+)/)||[])[1];
+const cloudVersion=(html.match(/cloud\.js\?v=(\d+)/)||[])[1];
 const cacheVersion=(sw.match(/refrigerista-v(\d+)/)||[])[1];
-assert(cssVersion&&appVersion&&cacheVersion,"version markers missing");
-assert(cssVersion===appVersion&&appVersion===cacheVersion,"asset/cache versions are out of sync");
+assert(cssVersion&&appVersion&&cloudVersion&&cacheVersion,"version markers missing");
+assert(cssVersion===appVersion&&appVersion===cloudVersion&&cloudVersion===cacheVersion,"asset/cache versions are out of sync");
+assert(sw.includes("./cloud.js?v="+cloudVersion),"cloud.js is not cached by the service worker");
 
 new Function(app);
+new Function(cloud);
 
 assert(app.includes("function customerRows()"),"customer grouping missing");
 assert(app.includes("function equipmentRows()"),"equipment grouping missing");
 assert(app.includes("function renderGlobalSearch("),"global search implementation missing");
 assert(app.includes("function updateBaseOrders("),"record editing implementation missing");
 assert(app.includes("function orderWhenLabel("),"schedule formatting missing");
+assert(cloud.includes("signInWithPassword"),"password login missing");
+assert(cloud.includes("signUp"),"first access flow missing");
+assert(cloud.includes("uploadLocalData"),"manual cloud upload missing");
+assert(cloud.includes("downloadCloudData"),"manual cloud download missing");
 
 console.log("RefrigeristaAPP smoke checks: PASS");
