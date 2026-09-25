@@ -2,6 +2,7 @@ const CLOUD_CONFIG_URL="https://kzkjnamwtqlgcqkeerwj.supabase.co/functions/v1/pu
 let cloud=null;
 let cloudSession=null;
 let cloudAuthorized=false;
+let googleCalendarState={configured:false,connected:false};
 
 function cloudStatus(message,state=""){
   const text=document.getElementById("cloudStatus");
@@ -18,7 +19,8 @@ function cloudPanels(){
   if(out)out.hidden=connected;
   if(inside)inside.hidden=!connected;
   if(user)user.textContent=connected?cloudSession.user.email:"";
-  if(connected)refreshCloudSummary();
+  if(connected){refreshCloudSummary();refreshGoogleCalendarStatus()}
+  else renderGoogleCalendarState();
 }
 function setLastSync(label){
   localStorage.setItem("refrig-last-sync",JSON.stringify({at:new Date().toISOString(),label}));
@@ -208,6 +210,12 @@ async function uploadMediaFor(o,workOrderId){
   }
 }
 
+async function invokeGoogleCalendarSync(workOrderId){
+  if(!googleCalendarState.connected||!cloud)return {skipped:true};
+  const {data,error}=await cloud.functions.invoke("google-calendar-sync",{body:{work_order_id:workOrderId}});
+  if(error)throw error;
+  return data||{};
+}
 async function uploadLocalData(){
   if(!cloudAuthorized){notify("Entre na nuvem primeiro.");return}
   ensureSyncKeys();
@@ -238,7 +246,7 @@ async function uploadLocalData(){
         external_key:o.syncKey,customer_id:customerId,equipment_id:equipmentId,status:remoteStatus(o),
         attendance_type:o.attendanceType||"Manutenção corretiva",complaint:o.complaint||null,
         diagnosis:o.diagnosis||null,service_report:o.service||null,materials_text:o.materials||null,
-        scheduled_at:isoDateTime(o.scheduledAt),opened_at:isoDateTime(o.createdAt)||new Date().toISOString(),
+        scheduled_at:isoDateTime(o.scheduledAt),appointment_duration_minutes:Number(o.appointmentDurationMinutes||60),opened_at:isoDateTime(o.createdAt)||new Date().toISOString(),
         closed_at:o.tag==="done"?(isoDateTime(o.closedAt)||new Date().toISOString()):null,
         created_by:cloudSession.user.id
       });
@@ -254,6 +262,10 @@ async function uploadLocalData(){
         if(error)throw error;
       }
       await uploadMediaFor(o,workOrderId);
+      if(googleCalendarState.connected){
+        try{await invokeGoogleCalendarSync(workOrderId)}
+        catch(err){console.warn("Google Calendar não sincronizado",err)}
+      }
     }
     setLastSync("envio para nuvem");
     await refreshCloudSummary();
@@ -320,7 +332,7 @@ async function downloadCloudData(){
         equipmentId:equipment.external_key||"",equipmentKey:equipment.external_key||"",equipmentType:equipment.type||"",
         brand:equipment.brand||"",model:equipment.model||"",capacity:equipment.capacity||"",voltage:equipment.voltage||"",
         gas:equipment.refrigerant||"",room:equipment.environment||"",serial:equipment.serial_number||"",equipmentNotes:equipment.notes||"",
-        attendanceType:w.attendance_type||"Manutenção corretiva",scheduledAt:w.scheduled_at||"",
+        attendanceType:w.attendance_type||"Manutenção corretiva",scheduledAt:w.scheduled_at||"",appointmentDurationMinutes:Number(w.appointment_duration_minutes||60),
         complaint:w.complaint||"Sem relato inicial",diagnosis:w.diagnosis||"",service:w.service_report||"",materials:w.materials_text||"",
         status,tag,laborValue:Number(closing.labor_total||0),materialValue:Number(closing.material_total||0),
         payment:localPayment(closing.payment_mode),paymentStatus:closing.payment_status||"pending",
@@ -367,3 +379,122 @@ document.getElementById("cloudUploadBtn")?.addEventListener("click",uploadLocalD
 document.getElementById("cloudDownloadBtn")?.addEventListener("click",downloadCloudData);
 
 initCloud();
+
+
+// --- Google Calendar ---
+function renderGoogleCalendarState(){
+  const status=document.getElementById("googleCalendarStatus");
+  const dot=document.getElementById("googleCalendarDot");
+  const out=document.getElementById("googleCalendarDisconnected");
+  const inside=document.getElementById("googleCalendarConnected");
+  const account=document.getElementById("googleCalendarAccount");
+  const name=document.getElementById("googleCalendarName");
+  const connect=document.getElementById("googleCalendarConnectBtn");
+
+  if(!cloudAuthorized){
+    if(status)status.textContent="Entre na nuvem para configurar.";
+    if(dot){dot.classList.remove("ok","err")}
+    if(out)out.hidden=false;if(inside)inside.hidden=true;
+    if(connect)connect.disabled=true;
+    return;
+  }
+
+  if(!googleCalendarState.configured){
+    if(status)status.textContent="Integração preparada; falta cadastrar o OAuth do Google.";
+    if(dot){dot.classList.remove("ok");dot.classList.add("err")}
+    if(out)out.hidden=false;if(inside)inside.hidden=true;
+    if(connect)connect.disabled=true;
+    return;
+  }
+
+  if(googleCalendarState.connected){
+    if(status)status.textContent="Agenda conectada.";
+    if(dot){dot.classList.add("ok");dot.classList.remove("err")}
+    if(out)out.hidden=true;if(inside)inside.hidden=false;
+    if(account)account.textContent=googleCalendarState.google_email||"Conta Google conectada";
+    if(name)name.textContent="Agenda: "+(googleCalendarState.calendar_name||"Luiz Miguel — Atendimentos");
+  }else{
+    if(status)status.textContent="Pronto para conectar a conta Google do Luiz.";
+    if(dot){dot.classList.remove("ok","err")}
+    if(out)out.hidden=false;if(inside)inside.hidden=true;
+    if(connect)connect.disabled=false;
+  }
+}
+
+async function refreshGoogleCalendarStatus(){
+  if(!cloudAuthorized||!cloud){renderGoogleCalendarState();return}
+  try{
+    const {data,error}=await cloud.functions.invoke("google-calendar-status",{body:{}});
+    if(error)throw error;
+    googleCalendarState={
+      configured:Boolean(data?.configured),
+      connected:Boolean(data?.connected),
+      google_email:data?.google_email||null,
+      calendar_name:data?.calendar_name||null,
+      calendar_id:data?.calendar_id||null,
+      redirect_uri:data?.redirect_uri||null
+    };
+  }catch(err){
+    console.error(err);
+    googleCalendarState={configured:false,connected:false,error:true};
+  }
+  renderGoogleCalendarState();
+}
+
+document.getElementById("googleCalendarConnectBtn")?.addEventListener("click",async()=>{
+  if(!cloudAuthorized||!cloud){notify("Entre na nuvem primeiro.");return}
+  const btn=document.getElementById("googleCalendarConnectBtn");
+  if(btn)btn.disabled=true;
+  try{
+    const returnUrl=location.origin+location.pathname;
+    const {data,error}=await cloud.functions.invoke("google-calendar-auth-start",{body:{return_url:returnUrl}});
+    if(error)throw error;
+    if(!data?.authorization_url){
+      if(data?.error==="google_oauth_not_configured")throw new Error("OAuth do Google ainda não configurado.");
+      throw new Error("URL de autorização não recebida.");
+    }
+    location.href=data.authorization_url;
+  }catch(err){
+    console.error(err);notify(err.message||"Não foi possível iniciar a conexão Google.");
+    if(btn)btn.disabled=false;
+    await refreshGoogleCalendarStatus();
+  }
+});
+
+document.getElementById("googleCalendarDisconnectBtn")?.addEventListener("click",async()=>{
+  if(!confirm("Desconectar o Google Agenda? Os eventos já criados continuarão na agenda."))return;
+  try{
+    const {error}=await cloud.functions.invoke("google-calendar-disconnect",{body:{}});
+    if(error)throw error;
+    googleCalendarState={configured:true,connected:false};
+    renderGoogleCalendarState();
+    notify("Google Agenda desconectado.");
+  }catch(err){console.error(err);notify("Não foi possível desconectar a agenda.")}
+});
+
+document.getElementById("googleCalendarSyncBtn")?.addEventListener("click",async()=>{
+  if(!googleCalendarState.connected)return;
+  try{
+    const {data,error}=await cloud.from("work_orders").select("id");
+    if(error)throw error;
+    let done=0;
+    for(const row of data||[]){
+      try{await invokeGoogleCalendarSync(row.id);done++}catch(err){console.warn(err)}
+    }
+    notify("Agenda sincronizada: "+done+" atendimento(s).");
+  }catch(err){console.error(err);notify("Falha ao sincronizar a agenda.")}
+});
+
+function consumeGoogleCalendarCallback(){
+  const url=new URL(location.href);
+  const result=url.searchParams.get("google_calendar");
+  if(!result)return;
+  const reason=url.searchParams.get("reason");
+  url.searchParams.delete("google_calendar");
+  url.searchParams.delete("reason");
+  history.replaceState({},document.title,url.toString());
+  if(result==="connected")notify("Google Agenda conectado.");
+  else notify("Falha ao conectar Google Agenda"+(reason?": "+reason:"")+".");
+}
+
+consumeGoogleCalendarCallback();
