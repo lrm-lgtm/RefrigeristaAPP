@@ -8,7 +8,7 @@
   <title>Luiz Miguel | Refrigeração</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=11">
+  <link rel="stylesheet" href="./styles.css?v=12">
 </head>
 <body>
   <header class="topbar">
@@ -19,7 +19,7 @@
         <small>AR CONDICIONADO E REFRIGERAÇÃO</small>
       </div>
     </div>
-    <button class="round" id="installBtn" hidden>⇩</button>
+    <div class="top-actions"><button class="round" id="installBtn" hidden>⇩</button><button class="round" id="settingsBtn" aria-label="Mais opções">⋯</button></div>
   </header>
 
   <main>
@@ -94,6 +94,10 @@
       <section class="step active" data-step="1">
         <label>Cliente<input name="customer" required list="customerOptions" placeholder="Nome do cliente"><datalist id="customerOptions"></datalist></label>
         <label>Telefone<input name="phone" inputmode="tel" placeholder="(19) 99999-9999"></label>
+        <details class="optional-box"><summary>Mais dados do cliente</summary>
+          <label>Endereço<input name="address" placeholder="Rua, número, bairro"></label>
+          <label>Observações<textarea name="customerNotes" rows="2" placeholder="Ex.: prefere atendimento após 18h"></textarea></label>
+        </details>
         <button type="button" class="primary full" data-next="2">Continuar</button>
       </section>
 
@@ -109,6 +113,9 @@
         <div class="grid2"><label>Capacidade<input name="capacity" placeholder="12.000 BTU"></label><label>Tensão<input name="voltage" placeholder="220 V"></label></div>
         <div class="grid2"><label>Gás<input name="gas" placeholder="R410A"></label><label>Ambiente<input name="room" placeholder="Sala"></label></div>
         <label>Nº de série<input name="serial" placeholder="Opcional"></label>
+        <details class="optional-box"><summary>Observações do equipamento</summary>
+          <label>Notas técnicas<textarea name="equipmentNotes" rows="2" placeholder="Ex.: condensadora no telhado"></textarea></label>
+        </details>
         <div class="actions"><button type="button" class="secondary" data-prev="1">Voltar</button><button type="button" class="primary" data-next="3">Continuar</button></div>
       </section>
 
@@ -128,6 +135,13 @@
       <input type="hidden" id="finishOrderId" name="orderId">
       <label>Diagnóstico<textarea name="diagnosis" rows="3" placeholder="Defeito encontrado"></textarea></label>
       <label>Serviço executado<textarea name="service" rows="3" placeholder="Descreva o que foi feito"></textarea></label>
+      <div class="quick-services" id="quickServices">
+        <button type="button" data-service-template="Limpeza e higienização completa">Limpeza</button>
+        <button type="button" data-service-template="Instalação do equipamento">Instalação</button>
+        <button type="button" data-service-template="Carga/complemento de fluido refrigerante">Carga de gás</button>
+        <button type="button" data-service-template="Substituição de capacitor">Capacitor</button>
+        <button type="button" data-service-template="Diagnóstico técnico e testes de funcionamento">Diagnóstico</button>
+      </div>
       <label>Materiais / peças<textarea name="materials" rows="2" placeholder="Capacitor, gás, tubo, suporte..."></textarea></label>
       <div class="grid2"><label>Serviço / mão de obra<input name="laborValue" inputmode="decimal" placeholder="0,00"></label><label>Materiais<input name="materialValue" inputmode="decimal" placeholder="0,00"></label></div>
       <div class="grid2"><label>Forma de pagamento<select name="payment"><option>Pix</option><option>Dinheiro</option><option>Cartão</option><option>Faturado</option><option>Crediário</option></select></label><label>Status do pagamento<select name="paymentStatus"><option value="paid">Pago</option><option value="pending">Pendente</option><option value="partial">Parcial</option></select></label></div>
@@ -139,7 +153,21 @@
       <div class="actions"><button type="button" class="secondary" id="cancelFinish">Cancelar</button><button class="primary" type="submit">Finalizar atendimento</button></div>
     </form>
   </dialog>
+  <dialog id="settingsDialog" class="settings-dialog">
+    <form method="dialog">
+      <header><div><span>RefrigeristaAPP</span><h2>Dados e backup</h2></div><button value="cancel">×</button></header>
+      <section class="settings-card">
+        <b>Armazenamento atual</b>
+        <small>Durante o piloto, os dados ficam neste aparelho. O Supabase próprio já está preparado para a próxima etapa.</small>
+      </section>
+      <div class="settings-actions">
+        <button type="button" class="secondary full" id="exportBackup">Exportar backup completo</button>
+        <label class="secondary full import-label">Restaurar backup<input id="importBackup" type="file" accept="application/json,.json"></label>
+      </div>
+      <small class="settings-note">O backup inclui atendimentos, histórico, fotos e assinaturas salvas neste navegador.</small>
+    </form>
+  </dialog>
   <div class="toast" id="toast"></div>
-  <script src="./app.js?v=11"></script>
+  <script src="./app.js?v=12"></script>
 </body>
 </html>
