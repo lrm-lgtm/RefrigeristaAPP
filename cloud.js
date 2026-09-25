@@ -18,6 +18,26 @@ function cloudPanels(){
   if(out)out.hidden=connected;
   if(inside)inside.hidden=!connected;
   if(user)user.textContent=connected?cloudSession.user.email:"";
+  if(connected)refreshCloudSummary();
+}
+function setLastSync(label){
+  localStorage.setItem("refrig-last-sync",JSON.stringify({at:new Date().toISOString(),label}));
+}
+function lastSyncText(){
+  try{
+    const row=JSON.parse(localStorage.getItem("refrig-last-sync")||"null");
+    if(!row?.at)return "Banco real começa limpo. Nada local é enviado automaticamente.";
+    return "Última sincronização: "+new Date(row.at).toLocaleString("pt-BR")+" · "+row.label;
+  }catch{return "Sincronização manual ativa."}
+}
+async function refreshCloudSummary(){
+  const local=document.getElementById("cloudLocalCount"),remote=document.getElementById("cloudRemoteCount"),last=document.getElementById("cloudLastSync");
+  if(local)local.textContent=rawLocalOrders().length;
+  if(last)last.textContent=lastSyncText();
+  if(remote&&cloudAuthorized){
+    const {count,error}=await cloud.from("work_orders").select("*",{count:"exact",head:true});
+    remote.textContent=error?"—":String(count??0);
+  }
 }
 
 async function initCloud(){
@@ -235,6 +255,8 @@ async function uploadLocalData(){
       }
       await uploadMediaFor(o,workOrderId);
     }
+    setLastSync("envio para nuvem");
+    await refreshCloudSummary();
     cloudStatus("Envio concluído. Nuvem atualizada.","ok");
     notify("Dados enviados para a nuvem.");
   }catch(err){
@@ -315,6 +337,7 @@ async function downloadCloudData(){
     }
     localStorage.setItem("refrig-orders",JSON.stringify(local));
     localStorage.setItem("refrig-order-details","{}");
+    localStorage.setItem("refrig-initialized","1");
     await clearMediaStore();
     for(const m of mediaR.data){
       const orderId=localIdByRemote.get(m.work_order_id);if(!orderId)continue;
@@ -331,6 +354,8 @@ async function downloadCloudData(){
       }catch(err){console.warn("Assinatura não baixada",err)}
     }
     render();
+    setLastSync("download da nuvem");
+    await refreshCloudSummary();
     cloudStatus("Este aparelho está atualizado pela nuvem.","ok");
     notify("Histórico baixado da nuvem.");
   }catch(err){
