@@ -402,3 +402,112 @@
   .top-action{width:39px;height:39px;border-radius:12px}
   .top-action svg{width:20px;height:20px}
 }
+
+
+/* v22 — alinhamento da home e ritmo visual */
+.hello{
+  min-height:72px;
+  align-items:center;
+  margin-bottom:12px;
+}
+.hello>div{min-width:0}
+.hello h1{line-height:1.05}
+.search-btn{
+  flex:0 0 auto;
+  display:grid;
+  place-items:center;
+  width:42px;height:42px;
+  border:1px solid #e0e9ed;
+  background:#f7fafb;
+  color:var(--blue);
+  box-shadow:none;
+}
+.search-btn svg{
+  width:20px;height:20px;
+  fill:none;stroke:currentColor;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round;
+}
+
+/* Ações principais com a mesma altura e sem margem fantasma do botão azul */
+.quick-start{align-items:stretch;margin-bottom:14px}
+.quick-start .new-os,
+.quick-start .new-visit{
+  margin:0;
+  min-height:132px;
+  height:100%;
+  border-radius:18px;
+  padding:18px 20px;
+}
+.quick-start .new-os>span,
+.quick-start .new-visit>span{
+  flex:0 0 44px;
+  width:44px;height:44px;
+  display:grid;place-items:center;
+}
+.quick-start .new-os>span{font-size:34px}
+.quick-start .new-visit>span{border-radius:13px}
+.quick-start b{line-height:1.15}
+.quick-start small{line-height:1.3}
+
+/* KPIs: número e legenda presos no mesmo eixo em todos os cards */
+.stats{align-items:stretch}
+.stats article{
+  min-width:0;
+  min-height:112px;
+  padding:16px 18px;
+  display:grid;
+  grid-template-rows:36px 32px;
+  align-content:center;
+  justify-items:start;
+}
+.stats strong{
+  display:block;
+  margin:0;
+  padding:0;
+  height:36px;
+  line-height:36px;
+  font-size:28px;
+  font-weight:800;
+  font-variant-numeric:tabular-nums lining-nums;
+}
+.stats span{
+  display:flex;
+  align-items:flex-start;
+  margin:0;
+  min-height:32px;
+  line-height:1.25;
+}
+
+/* Estado vazio deixa de parecer um buraco no meio da home */
+#homeVisits .preventive-empty{
+  min-height:62px;
+  display:flex!important;
+  align-items:center;
+  justify-content:center;
+  padding:14px 16px!important;
+  border:1px dashed #cfdae0;
+  border-radius:14px;
+  background:rgba(255,255,255,.6);
+  color:#78868e;
+}
+[data-view="home"] .section-title{margin-top:24px}
+[data-view="home"] .visit-title{margin-top:18px}
+[data-view="home"] #homeVisits{margin-bottom:8px}
+
+@media(max-width:620px){
+  .hello{min-height:64px;margin-bottom:10px}
+  .quick-start{gap:10px}
+  .quick-start .new-os,
+  .quick-start .new-visit{
+    min-height:126px;
+    padding:17px 20px;
+  }
+  .stats{gap:9px;margin-top:14px;margin-bottom:26px}
+  .stats article{
+    min-height:104px;
+    padding:14px 14px;
+    grid-template-rows:34px 30px;
+  }
+  .stats strong{height:34px;line-height:34px;font-size:27px}
+  .stats span{min-height:30px;font-size:11.5px}
+}
