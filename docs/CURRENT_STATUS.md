@@ -18,7 +18,7 @@ Cliente -> Equipamento -> Atendimento -> Diagnóstico/serviço
 
 ## Frontend/PWA
 
-Estado atual: piloto local-first com nuvem manual, versão de cache v16.
+Estado atual: piloto local-first com nuvem manual, versão de cache v18.
 
 Implementado:
 
@@ -105,3 +105,32 @@ Falta uma ação humana inevitável: cada pessoa deve escolher sua própria senh
 5. editar/fechar no aparelho B, enviar novamente e baixar no A.
 
 Só depois desse teste a sincronização automática deve substituir os botões manuais.
+
+
+## Google Calendar
+
+Integração implementada e aguardando somente as credenciais OAuth do Google Cloud.
+
+Implementado:
+
+- agenda secundária própria: **Luiz Miguel — Atendimentos**;
+- OAuth 2.0 server-side com `state` de uso único;
+- acesso offline para refresh token;
+- refresh token criptografado no Supabase Vault;
+- escopo mínimo `calendar.app.created`;
+- criação/atualização/remoção do evento do atendimento;
+- duração prevista do atendimento;
+- lembretes 1 dia e 1 hora antes;
+- preventiva como evento futuro com lembretes 7 dias e 1 dia antes;
+- status, conectar, sincronizar e desconectar na tela **Dados e backup**;
+- Edge Functions versionadas no repositório.
+
+Edge Functions ativas:
+
+- `google-calendar-auth-start`
+- `google-calendar-auth-callback`
+- `google-calendar-status`
+- `google-calendar-sync`
+- `google-calendar-disconnect`
+
+Gate externo atual: criar um OAuth Client do tipo **Web application** no Google Cloud e cadastrar o redirect URI documentado em `docs/GOOGLE_CALENDAR_SETUP.md`. O Client ID e Client Secret serão gravados no Supabase Vault e nunca no GitHub.
