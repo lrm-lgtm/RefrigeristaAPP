@@ -301,6 +301,7 @@ form.addEventListener("submit",async e=>{
     status:"Aberta",tag:"wait",
     attendanceType:String(fd.get("attendanceType")||"Manutenção corretiva"),
     scheduledAt:String(fd.get("scheduledAt")||""),
+    appointmentDurationMinutes:Number(fd.get("appointmentDurationMinutes")||60),
     complaint:fd.get("complaint")||"Sem relato inicial",
     when:"Agora",value:"A orçar",
     initialPhotos:(form.elements.photos?.files||[]).length,
@@ -381,7 +382,7 @@ function openOrderDetail(id){
   detailContent.innerHTML=
     '<article class="detail-hero"><button class="detail-back" type="button">‹</button><div><small>Atendimento #'+esc(o.id)+(o.attendanceType?' · '+esc(o.attendanceType):'')+'</small><h1>'+esc(o.customer)+'</h1><span>'+esc(o.equipment)+(o.scheduledAt?' · '+esc(orderWhenLabel(o)):'')+'</span></div><span class="tag '+(o.tag==="done"?"done":o.tag==="wait"?"wait":"")+'">'+esc(o.status)+'</span></article>'+
     '<div class="detail-grid">'+
-      '<section class="info-card"><span>Problema relatado</span><b>'+esc(o.complaint||"Sem relato")+'</b></section>'+
+      '<section class="info-card"><span>Problema relatado</span><b>'+esc(o.complaint||"Sem relato")+'</b>'+(o.scheduledAt?'<p>Agendado: '+esc(orderWhenLabel(o))+' · '+esc(String(o.appointmentDurationMinutes||60))+' min</p>':'')+'</section>'+
       '<section class="info-card"><span>Diagnóstico</span><b>'+esc(o.diagnosis||"Ainda não informado")+'</b></section>'+
       '<section class="info-card wide"><span>Serviço executado</span><b>'+esc(o.service||"Ainda não informado")+'</b>'+(o.materials?'<p>Materiais: '+esc(o.materials)+'</p>':'')+'</section>'+
       '<section class="info-card wide"><span>Registro do atendimento</span><div class="value-grid"><div><small>Serviço</small><b>'+moneyValue(o.laborValue)+'</b></div><div><small>Materiais</small><b>'+moneyValue(o.materialValue)+'</b></div><div><small>Total</small><b>'+moneyValue(total)+'</b></div></div><div class="detail-pills"><span>📷 '+photos+' foto(s)</span><span>'+(o.signed?"✍ Assinado":"Assinatura pendente")+'</span><span>💳 '+esc(o.payment||"Não informado")+'</span><span class="payment-pill '+esc(o.paymentStatus||"pending")+'">'+esc(paymentStatusLabel(o.paymentStatus))+'</span>'+(o.warrantyUntil?'<span>🛡 Garantia até '+esc(formatDateBR(o.warrantyUntil))+'</span>':'')+(o.nextPreventive?'<span>↻ Retorno '+esc(formatDateBR(o.nextPreventive))+'</span>':'')+'</div>'+(o.closingNotes?'<p>Observação: '+esc(o.closingNotes)+'</p>':'')+'</section>'+
