@@ -8,7 +8,7 @@
   <title>Luiz Miguel | Refrigeração</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=16">
+  <link rel="stylesheet" href="./styles.css?v=17">
 </head>
 <body>
   <header class="topbar">
@@ -37,10 +37,10 @@
         <article><strong id="preventiveCount">0</strong><span>Preventivas</span></article>
       </div>
 
-      <div class="section-title"><div><b>Últimos atendimentos</b><small>Seu histórico recente</small></div><button data-go="orders">Ver todos</button></div>
+      <div class="section-title recent-title"><div><b>Últimos atendimentos</b><small>Seu histórico recente</small></div><button data-go="orders">Ver todos</button></div>
       <div class="cards" id="homeOrders"></div>
 
-      <div class="section-title"><div><b>Próximas preventivas</b><small>Lembretes que você deixou nos atendimentos</small></div></div>
+      <div class="section-title preventive-title"><div><b>Próximas preventivas</b><small>Lembretes que você deixou nos atendimentos</small></div></div>
       <div class="preventive" id="preventiveList"></div>
     </section>
 
@@ -63,7 +63,7 @@
     </section>
 
     <section class="view" data-view="equipment">
-      <div class="page-head"><div><span>Patrimônio técnico</span><h1>Equipamentos</h1></div><button class="primary compact" data-action="new-os">＋ Nova OS</button></div>
+      <div class="page-head"><div><span>Patrimônio técnico</span><h1>Equipamentos</h1></div><button class="primary compact" data-action="new-os">＋ Atendimento</button></div>
       <label class="search"><span>⌕</span><input id="equipmentSearch" placeholder="Cliente, marca, modelo ou série"></label>
       <div id="equipmentList"></div>
     </section>
@@ -81,7 +81,7 @@
   <nav class="bottom-nav">
     <button class="active" data-go="home"><span>⌂</span><b>Início</b></button>
     <button data-go="orders"><span>▤</span><b>Atend.</b></button>
-    <button class="center" data-action="new-os"><span>＋</span></button>
+    <button class="center" data-action="new-os"><span>＋</span><b>Novo</b></button>
     <button data-go="clients"><span>●</span><b>Clientes</b></button>
     <button data-go="equipment"><span>❄</span><b>Equip.</b></button>
   </nav>
@@ -234,7 +234,7 @@
   </dialog>
   <div class="toast" id="toast"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./app.js?v=16"></script>
-  <script src="./cloud.js?v=16"></script>
+  <script src="./app.js?v=17"></script>
+  <script src="./cloud.js?v=17"></script>
 </body>
 </html>
