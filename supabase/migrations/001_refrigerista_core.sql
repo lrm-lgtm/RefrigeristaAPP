@@ -102,7 +102,12 @@ create table if not exists public.work_order_closings (
   grand_total numeric(12,2) not null default 0 check (grand_total >= 0),
   payment_mode text not null default 'pending'
     check (payment_mode in ('pix','cash','card','invoiced','credit','pending')),
+  payment_status text not null default 'pending'
+    check (payment_status in ('paid','pending','partial')),
+  amount_paid numeric(12,2) not null default 0 check (amount_paid >= 0),
   next_preventive_at date,
+  warranty_until date,
+  notes text,
   customer_name text,
   customer_confirmed boolean not null default false,
   signature_path text,
