@@ -14,6 +14,7 @@ const stepDots=[...document.querySelectorAll(".steps i")];
 let currentView="home";
 let orderFilter="all";
 let visitFilter="all";
+let pendingVisitConversionId="";
 
 const MEDIA_DB_NAME="refrigerista-media-v1";
 const MEDIA_STORE="media";
@@ -77,6 +78,7 @@ function go(name){
   nav.forEach(b=>b.classList.toggle("active",b.dataset.go===name));
   if(name==="clients")renderClients(document.getElementById("clientSearch")?.value||"");
   if(name==="equipment")renderEquipment(document.getElementById("equipmentSearch")?.value||"");
+  if(name==="visits")renderVisits();
   scrollTo({top:0,behavior:"smooth"});
 }
 document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.go)));
@@ -260,6 +262,7 @@ function populateExistingEquipment(preselect=""){
   if(preselect){select.value=preselect;select.dispatchEvent(new Event("change"))}
 }
 function openNewOrder(customerId="",equipmentId=""){
+  pendingVisitConversionId="";
   form.reset();
   const c=customerRows().find(x=>x.id===customerId);
   if(c){
@@ -339,6 +342,10 @@ form.addEventListener("submit",async e=>{
   const initialFiles=[...(form.elements.photos?.files||[])];
   const saved=JSON.parse(localStorage.getItem("refrig-orders")||"[]");saved.unshift(item);localStorage.setItem("refrig-orders",JSON.stringify(saved));localStorage.setItem("refrig-initialized","1");
   try{await saveOrderFiles(item.id,initialFiles,"initial")}catch{}
+  if(pendingVisitConversionId){
+    updateVisit(pendingVisitConversionId,{status:"done",convertedOrderId:item.id});
+    pendingVisitConversionId="";
+  }
   render();dialog.close();go("orders");notify("Atendimento criado e registrado no histórico.");
 });
 const q=document.getElementById("orderSearch");q?.addEventListener("input",renderOrderList);
@@ -468,14 +475,17 @@ function orderHistoryCard(o){
 function openClientDetail(customerId){
   const c=customerRows().find(x=>x.id===customerId); if(!c)return;
   const eq=equipmentRows().filter(e=>e.customerId===c.id);
+  const linkedVisits=visitRows().filter(v=>v.customerId===c.id||normalizeKey(v.customerName)===normalizeKey(c.name))
+    .sort((a,b)=>String(b.scheduledAt||"").localeCompare(String(a.scheduledAt||"")));
   const target=document.getElementById("clientDetailContent");
   target.innerHTML=
     '<article class="registry-hero"><button class="registry-back" type="button">‹</button><div><small>Cliente</small><h1>'+esc(c.name)+'</h1><span>'+esc([c.phone,c.address].filter(Boolean).join(" · ")||"Sem telefone/endereço cadastrado")+'</span>'+(c.notes?'<p class="hero-note">'+esc(c.notes)+'</p>':'')+'</div></article>'+
-    '<div class="registry-kpis"><div><small>Equipamentos</small><b>'+eq.length+'</b></div><div><small>Atendimentos</small><b>'+c.orders.length+'</b></div><div><small>Histórico</small><b>'+moneyValue(c.total)+'</b></div></div>'+
+    '<div class="registry-kpis"><div><small>Equipamentos</small><b>'+eq.length+'</b></div><div><small>Atendimentos</small><b>'+c.orders.length+'</b></div><div><small>Visitas</small><b>'+linkedVisits.length+'</b></div><div><small>Histórico</small><b>'+moneyValue(c.total)+'</b></div></div>'+
     '<div class="client-actions"><button class="primary registry-new-os" type="button" data-new-client-os>＋ Novo atendimento</button><button class="secondary" type="button" data-new-client-visit>◷ Visita</button>'+(c.phone?'<a class="secondary whatsapp-action" href="'+esc(whatsappHref(c.phone))+'" target="_blank" rel="noopener">WhatsApp</a>':'')+'<button class="secondary" type="button" data-edit-client>Editar</button></div>'+
     '<section class="registry-section"><div class="section-title"><div><b>Equipamentos</b><small>Prontuários deste cliente</small></div></div>'+
       (eq.length?eq.map(e=>'<article class="equipment-card clickable-card" data-equipment="'+esc(e.id)+'"><div class="equip-icon">❄</div><div><b>'+esc(e.name)+'</b><small>'+esc(e.room||"Local não informado")+'</small><em>'+esc([e.gas,e.voltage].filter(Boolean).join(" · ")||e.orders.length+" atendimento(s)")+'</em></div><span>›</span></article>').join(""):'<div class="empty-state">Nenhum equipamento cadastrado.</div>')+
     '</section>'+
+    (linkedVisits.length?'<section class="registry-section"><div class="section-title"><div><b>Visitas / compromissos</b><small>Agenda relacionada a este cliente</small></div></div><div class="visit-list">'+linkedVisits.map(visitCard).join("")+'</div></section>':'')+
     '<section class="registry-section"><div class="section-title"><div><b>Histórico de atendimentos</b><small>Valores, serviços e status</small></div></div><div class="mini-os-list">'+c.orders.slice().sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||""))).map(orderHistoryCard).join("")+'</div></section>';
   setViewDirect("client-detail");
   target.querySelector(".registry-back").onclick=()=>go("clients");
@@ -745,6 +755,7 @@ document.addEventListener("click",e=>{
     const v=visitRows().find(x=>String(x.id)===String(order.dataset.visitOrder));if(!v)return;
     const c=customerRows().find(x=>x.id===v.customerId);
     openNewOrder(c?.id||"");
+    pendingVisitConversionId=String(v.id);
     if(!c){
       form.elements.customer.value=v.customerName||"";
       form.elements.phone.value=v.phone||"";
