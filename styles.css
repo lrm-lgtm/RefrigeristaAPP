@@ -186,3 +186,21 @@
 .client-actions .registry-new-os{margin-top:0}
 .whatsapp-action{display:flex;align-items:center;justify-content:center;text-decoration:none;min-width:104px}
 @media(max-width:420px){.client-actions{grid-template-columns:1fr}.whatsapp-action{min-height:44px}}
+
+
+/* v12 — caderno técnico: dados opcionais, comprovante e backup */
+.top-actions{display:flex;align-items:center;gap:7px}
+.optional-box{margin:4px 0 14px;border:1px solid var(--line);border-radius:12px;background:#f8fafb;padding:10px 12px}
+.optional-box summary{cursor:pointer;font-size:12px;font-weight:800;color:var(--blue)}
+.optional-box[open] summary{margin-bottom:12px}
+.hero-note{margin:7px 0 0!important;color:rgba(255,255,255,.82)!important}
+.equipment-note{margin-top:8px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px}
+.equipment-note small,.equipment-note b{display:block}.equipment-note small{color:var(--muted);font-size:10px}.equipment-note b{margin-top:4px;font-size:13px}
+.quick-services{display:flex;gap:6px;overflow:auto;margin:-3px 0 14px;padding-bottom:3px;scrollbar-width:none}
+.quick-services::-webkit-scrollbar{display:none}.quick-services button{border:1px solid #cfe0e7;background:#f5fafc;color:var(--blue);border-radius:999px;padding:7px 10px;font-size:11px;font-weight:800;white-space:nowrap}
+.detail-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}
+.detail-actions button{min-height:46px}
+.settings-dialog{width:min(520px,calc(100% - 24px));border:0;border-radius:20px;padding:0}
+.settings-dialog form{padding:18px}.settings-card{background:#f4f8fa;border:1px solid var(--line);border-radius:14px;padding:14px}.settings-card b,.settings-card small{display:block}.settings-card small{margin-top:6px;color:var(--muted);line-height:1.45}
+.settings-actions{display:grid;gap:8px;margin-top:12px}.import-label{text-align:center;cursor:pointer}.import-label input{display:none}.settings-note{display:block;margin-top:12px;color:var(--muted);line-height:1.4}
+@media(max-width:420px){.detail-actions{grid-template-columns:1fr}}
