@@ -230,3 +230,10 @@
 .cloud-login-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.link-btn{display:block;margin:10px auto 0;color:var(--blue2);font-weight:700;font-size:12px}
 #cloudLoggedIn>strong{display:block;color:var(--blue);margin:12px 0 4px;word-break:break-word}
 @media(max-width:420px){.cloud-login-actions{grid-template-columns:1fr}}
+
+
+/* v16 — início limpo + resumo de sincronização */
+.danger-outline{border:1px solid #e2b8b1!important;background:#fff7f5!important;color:#a54537!important}
+.cloud-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0 6px}
+.cloud-summary span{display:block;background:#f5f8fa;border:1px solid var(--line);border-radius:12px;padding:10px}
+.cloud-summary b,.cloud-summary small{display:block}.cloud-summary b{font-size:18px;color:var(--blue)}.cloud-summary small{margin-top:2px;color:var(--muted);font-size:10px}
