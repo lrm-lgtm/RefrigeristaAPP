@@ -173,3 +173,16 @@
   .stats strong{font-size:22px}
   .stats span{font-size:11px}
 }
+
+
+/* v11 — filtros rápidos e ações pessoais */
+.stat-click{cursor:pointer;transition:transform .12s ease,border-color .12s ease}
+.stat-click:active{transform:scale(.98)}
+.filter-chips{display:flex;gap:7px;overflow:auto;padding:0 0 12px;scrollbar-width:none}
+.filter-chips::-webkit-scrollbar{display:none}
+.filter-chips button{border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:999px;padding:8px 11px;font-size:11px;font-weight:800;white-space:nowrap}
+.filter-chips button.active{background:var(--blue);border-color:var(--blue);color:#fff}
+.client-actions{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px}
+.client-actions .registry-new-os{margin-top:0}
+.whatsapp-action{display:flex;align-items:center;justify-content:center;text-decoration:none;min-width:104px}
+@media(max-width:420px){.client-actions{grid-template-columns:1fr}.whatsapp-action{min-height:44px}}
