@@ -220,3 +220,13 @@
 
 /* v14 — datas persistentes e garantia no prontuário */
 .equipment-specs .spec-warranty{background:#eef8f3;border-color:#cfe7da}.equipment-specs .spec-warranty b{color:#15835e}
+
+
+/* v15 — login pessoal + sincronização manual */
+.cloud-card{margin-top:12px}.cloud-title{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.cloud-title small{margin-top:4px!important}.cloud-dot{width:11px;height:11px;border-radius:50%;background:#b9c3c8;flex:0 0 auto;margin-top:4px}
+.cloud-dot.ok{background:#16835f;box-shadow:0 0 0 4px rgba(22,131,95,.12)}.cloud-dot.err{background:#bb5b4f;box-shadow:0 0 0 4px rgba(187,91,79,.12)}
+.cloud-card label{display:block;font-size:12px;font-weight:800;margin-top:12px}.cloud-card input{width:100%;margin-top:6px;border:1px solid #cedbe1;border-radius:12px;padding:12px;font:inherit;font-size:16px}
+.cloud-login-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.link-btn{display:block;margin:10px auto 0;color:var(--blue2);font-weight:700;font-size:12px}
+#cloudLoggedIn>strong{display:block;color:var(--blue);margin:12px 0 4px;word-break:break-word}
+@media(max-width:420px){.cloud-login-actions{grid-template-columns:1fr}}
