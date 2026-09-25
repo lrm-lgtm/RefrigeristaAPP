@@ -83,7 +83,7 @@ document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=
 
 function visitRows(){try{return JSON.parse(localStorage.getItem("refrig-visits")||"[]")}catch{return []}}
 function saveVisits(rows){localStorage.setItem("refrig-visits",JSON.stringify(rows))}
-function orderDetails(){try{return JSON.parse(localStorage.getItem("refrig-order-details")||"{}")}catch{return {}}
+function orderDetails(){try{return JSON.parse(localStorage.getItem("refrig-order-details")||"{}")}catch{return {}}}
 function saveOrderDetail(id,patch){const all=orderDetails();all[String(id)]={...(all[String(id)]||{}),...patch};localStorage.setItem("refrig-order-details",JSON.stringify(all))}
 function orders(){
   try{
