@@ -18,6 +18,9 @@ assert(html.includes('id="settingsDialog"'),"settings dialog missing");
 assert(html.includes("Novo atendimento"),"personal atendimento wording missing");
 assert(html.includes('id="googleCalendarConnectBtn"'),"Google Calendar connect control missing");
 assert(html.includes('name="appointmentDurationMinutes"'),"appointment duration selector missing");
+assert(html.includes('data-view="visits"'),"visits view missing");
+assert(html.includes('id="visitDialog"'),"visit dialog missing");
+assert(html.includes('data-action="new-visit"'),"quick visit action missing");
 
 const cssVersion=(html.match(/styles\.css\?v=(\d+)/)||[])[1];
 const appVersion=(html.match(/app\.js\?v=(\d+)/)||[])[1];
@@ -35,6 +38,9 @@ assert(app.includes("function equipmentRows()"),"equipment grouping missing");
 assert(app.includes("function renderGlobalSearch("),"global search implementation missing");
 assert(app.includes("function updateBaseOrders("),"record editing implementation missing");
 assert(app.includes("function orderWhenLabel("),"schedule formatting missing");
+assert(app.includes("function visitRows()"),"visit local storage missing");
+assert(app.includes("function renderVisits()"),"visit rendering missing");
+assert(app.includes("pendingVisitConversionId"),"visit to attendance conversion missing");
 assert(cloud.includes("signInWithPassword"),"password login missing");
 assert(cloud.includes("signUp"),"first access flow missing");
 assert(cloud.includes("uploadLocalData"),"manual cloud upload missing");
@@ -43,5 +49,7 @@ assert(cloud.includes("refreshGoogleCalendarStatus"),"Google Calendar status int
 assert(cloud.includes("google-calendar-auth-start"),"Google Calendar OAuth start call missing");
 assert(cloud.includes("google-calendar-sync"),"Google Calendar sync call missing");
 assert(cloud.includes("google-calendar-disconnect"),"Google Calendar disconnect call missing");
+assert(cloud.includes("rawLocalVisits"),"visit cloud sync missing");
+assert(cloud.includes("visit_id"),"visit Google Calendar sync missing");
 
 console.log("RefrigeristaAPP smoke checks: PASS");
