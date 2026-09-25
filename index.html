@@ -8,7 +8,7 @@
   <title>Luiz Miguel | Refrigeração</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=14">
+  <link rel="stylesheet" href="./styles.css?v=15">
 </head>
 <body>
   <header class="topbar">
@@ -199,7 +199,29 @@
       <header><div><span>RefrigeristaAPP</span><h2>Dados e backup</h2></div><button value="cancel">×</button></header>
       <section class="settings-card">
         <b>Armazenamento atual</b>
-        <small>Durante o piloto, os dados ficam neste aparelho. O Supabase próprio já está preparado para a próxima etapa.</small>
+        <small>O app continua funcionando mesmo sem internet. A sincronização com a nuvem é manual nesta fase.</small>
+      </section>
+      <section class="settings-card cloud-card">
+        <div class="cloud-title"><div><b>Nuvem</b><small id="cloudStatus">Preparando conexão…</small></div><span id="cloudDot" class="cloud-dot"></span></div>
+        <div id="cloudLoggedOut">
+          <label>E-mail<input id="cloudEmail" type="email" autocomplete="email" placeholder="E-mail autorizado"></label>
+          <label>Senha<input id="cloudPassword" type="password" autocomplete="current-password" placeholder="Sua senha"></label>
+          <div class="cloud-login-actions">
+            <button type="button" class="primary" id="cloudLoginBtn">Entrar</button>
+            <button type="button" class="secondary" id="cloudSignupBtn">Primeiro acesso</button>
+          </div>
+          <button type="button" class="link-btn" id="cloudResetBtn">Esqueci minha senha</button>
+          <small class="settings-note">Somente Luiz e Leonardo estão autorizados.</small>
+        </div>
+        <div id="cloudLoggedIn" hidden>
+          <strong id="cloudUser"></strong>
+          <small class="settings-note">Banco real começa limpo. Nada local é enviado automaticamente.</small>
+          <div class="settings-actions">
+            <button type="button" class="primary full" id="cloudUploadBtn">Enviar dados deste aparelho</button>
+            <button type="button" class="secondary full" id="cloudDownloadBtn">Atualizar este aparelho pela nuvem</button>
+            <button type="button" class="secondary full" id="cloudLogoutBtn">Sair</button>
+          </div>
+        </div>
       </section>
       <div class="settings-actions">
         <button type="button" class="secondary full" id="exportBackup">Exportar backup completo</button>
@@ -209,6 +231,8 @@
     </form>
   </dialog>
   <div class="toast" id="toast"></div>
-  <script src="./app.js?v=14"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./app.js?v=15"></script>
+  <script src="./cloud.js?v=15"></script>
 </body>
 </html>
