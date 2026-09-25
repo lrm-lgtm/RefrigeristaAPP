@@ -328,3 +328,10 @@
   [data-view="clients"] #clientList,
   [data-view="equipment"] #equipmentList{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
+
+
+/* v18 — integração Google Agenda */
+.calendar-card{margin-top:12px}.calendar-explain{margin:11px 0 12px;color:var(--muted);font-size:12px;line-height:1.45}
+#googleCalendarConnected>strong{display:block;color:var(--blue);margin-top:12px;word-break:break-word}
+#googleCalendarConnectBtn:disabled{opacity:.5;cursor:not-allowed}
+.calendar-card .settings-actions{margin-top:10px}
