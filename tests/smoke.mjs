@@ -16,6 +16,8 @@ assert(html.includes('data-view="equipment"'),"equipment view missing");
 assert(html.includes('id="globalSearchDialog"'),"global search dialog missing");
 assert(html.includes('id="settingsDialog"'),"settings dialog missing");
 assert(html.includes("Novo atendimento"),"personal atendimento wording missing");
+assert(html.includes('id="googleCalendarConnectBtn"'),"Google Calendar connect control missing");
+assert(html.includes('name="appointmentDurationMinutes"'),"appointment duration selector missing");
 
 const cssVersion=(html.match(/styles\.css\?v=(\d+)/)||[])[1];
 const appVersion=(html.match(/app\.js\?v=(\d+)/)||[])[1];
@@ -37,5 +39,9 @@ assert(cloud.includes("signInWithPassword"),"password login missing");
 assert(cloud.includes("signUp"),"first access flow missing");
 assert(cloud.includes("uploadLocalData"),"manual cloud upload missing");
 assert(cloud.includes("downloadCloudData"),"manual cloud download missing");
+assert(cloud.includes("refreshGoogleCalendarStatus"),"Google Calendar status integration missing");
+assert(cloud.includes("google-calendar-auth-start"),"Google Calendar OAuth start call missing");
+assert(cloud.includes("google-calendar-sync"),"Google Calendar sync call missing");
+assert(cloud.includes("google-calendar-disconnect"),"Google Calendar disconnect call missing");
 
 console.log("RefrigeristaAPP smoke checks: PASS");
