@@ -8,7 +8,7 @@
   <title>Luiz Miguel | Refrigeração</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=17">
+  <link rel="stylesheet" href="./styles.css?v=18">
 </head>
 <body>
   <header class="topbar">
@@ -130,6 +130,15 @@
             <option>Outro</option>
           </select>
         </label><label>Agendado para <small>opcional</small><input name="scheduledAt" type="datetime-local"></label></div>
+        <label>Duração prevista
+          <select name="appointmentDurationMinutes">
+            <option value="30">30 minutos</option>
+            <option value="60" selected>1 hora</option>
+            <option value="90">1h30</option>
+            <option value="120">2 horas</option>
+            <option value="180">3 horas</option>
+          </select>
+        </label>
         <label>Problema relatado<textarea name="complaint" rows="4" placeholder="Ex.: não está gelando corretamente"></textarea></label>
         <label>Fotos do atendimento <small>opcional</small><input name="photos" type="file" accept="image/*" capture="environment" multiple></label>
         <div class="photo-hint"><span>📷</span><p><b>Sem vistoria obrigatória</b><small>Adicione fotos antes, durante ou depois quando fizer sentido.</small></p></div>
@@ -224,6 +233,21 @@
           </div>
         </div>
       </section>
+      <section class="settings-card calendar-card">
+        <div class="cloud-title"><div><b>Google Agenda</b><small id="googleCalendarStatus">Entre na nuvem para configurar.</small></div><span id="googleCalendarDot" class="cloud-dot"></span></div>
+        <div id="googleCalendarDisconnected">
+          <p class="calendar-explain">Agendamentos e preventivas podem virar eventos na agenda “Luiz Miguel — Atendimentos”.</p>
+          <button type="button" class="primary full" id="googleCalendarConnectBtn">Conectar Google Agenda</button>
+        </div>
+        <div id="googleCalendarConnected" hidden>
+          <strong id="googleCalendarAccount"></strong>
+          <small id="googleCalendarName" class="settings-note"></small>
+          <div class="settings-actions">
+            <button type="button" class="primary full" id="googleCalendarSyncBtn">Sincronizar agenda agora</button>
+            <button type="button" class="secondary full" id="googleCalendarDisconnectBtn">Desconectar Google Agenda</button>
+          </div>
+        </div>
+      </section>
       <div class="settings-actions">
         <button type="button" class="secondary full" id="exportBackup">Exportar backup completo</button>
         <label class="secondary full import-label">Restaurar backup<input id="importBackup" type="file" accept="application/json,.json"></label>
@@ -234,7 +258,7 @@
   </dialog>
   <div class="toast" id="toast"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./app.js?v=17"></script>
-  <script src="./cloud.js?v=17"></script>
+  <script src="./app.js?v=18"></script>
+  <script src="./cloud.js?v=18"></script>
 </body>
 </html>
