@@ -231,6 +231,7 @@ async function uploadLocalData(){
   if(!confirm("Enviar "+list.length+" atendimento(s) e "+visitList.length+" visita(s) deste aparelho para a nuvem?"))return;
   cloudStatus("Enviando dados…","ok");
   try{
+    const remoteOrderIds=new Map();
     for(const o of list){
       const customerKey=customerIdOf(o);
       const equipmentKey=equipmentIdOf(o);
@@ -257,6 +258,7 @@ async function uploadLocalData(){
         closed_at:o.tag==="done"?(isoDateTime(o.closedAt)||new Date().toISOString()):null,
         created_by:cloudSession.user.id
       });
+      remoteOrderIds.set(String(o.id),workOrderId);
       if(o.tag==="done"){
         const total=orderTotalValue(o);
         const {error}=await cloud.from("work_order_closings").upsert({
@@ -286,6 +288,7 @@ async function uploadLocalData(){
         phone:v.phone||null,address:v.address||null,title:v.title||"Visita",notes:v.notes||null,
         scheduled_at:isoDateTime(v.scheduledAt)||new Date().toISOString(),
         duration_minutes:Number(v.durationMinutes||60),status:v.status||"scheduled",
+        converted_work_order_id:v.convertedOrderId?remoteOrderIds.get(String(v.convertedOrderId))||null:null,
         created_by:cloudSession.user.id
       });
       if(googleCalendarState.connected){
@@ -379,7 +382,9 @@ async function downloadCloudData(){
       id:v.external_key||v.id,syncKey:v.external_key||v.id,customerId:customers.get(v.customer_id)?.external_key||"",
       customerName:v.customer_name||"Contato",phone:v.phone||"",address:v.address||"",title:v.title||"Visita",
       notes:v.notes||"",scheduledAt:v.scheduled_at||"",durationMinutes:Number(v.duration_minutes||60),
-      status:v.status||"scheduled",createdAt:v.created_at||"",updatedAt:v.updated_at||""
+      status:v.status||"scheduled",
+      convertedOrderId:v.converted_work_order_id?localIdByRemote.get(v.converted_work_order_id)||"": "",
+      createdAt:v.created_at||"",updatedAt:v.updated_at||""
     }))));
     localStorage.setItem("refrig-initialized","1");
     await clearMediaStore();
