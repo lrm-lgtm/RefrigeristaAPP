@@ -21,7 +21,7 @@ grant usage on schema private to authenticated;
 grant execute on function private.is_app_owner() to authenticated;
 
 -- Primeiro removemos as políticas antigas que ainda dependem da função pública.
-do $
+do $$
 declare
   tbl text;
 begin
@@ -32,7 +32,7 @@ begin
   loop
     execute format('drop policy if exists "app_owner_all" on public.%I', tbl);
   end loop;
-end $;
+end $$;
 
 drop policy if exists "app_owner_read_activity" on public.activity_log;
 drop policy if exists "app_owner_insert_activity" on public.activity_log;
