@@ -18,7 +18,7 @@ Cliente -> Equipamento -> Atendimento -> Diagnóstico/serviço
 
 ## Frontend/PWA
 
-Estado atual: piloto local-first, versão de cache v14.
+Estado atual: piloto local-first com nuvem manual, versão de cache v16.
 
 Implementado:
 
@@ -40,7 +40,13 @@ Implementado:
 - comprovante imprimível/PDF via impressão do navegador;
 - backup e restauração completos do navegador;
 - exemplos deixam de aparecer quando existe o primeiro atendimento real;
-- smoke checks executados antes do deploy no GitHub Pages.
+- smoke checks executados antes do deploy no GitHub Pages;
+- login por e-mail + senha;
+- primeiro acesso pelo próprio usuário;
+- sincronização manual aparelho -> nuvem e nuvem -> aparelho;
+- contador local/nuvem e registro da última sincronização;
+- opção de limpar apenas os dados locais;
+- os dados de demonstração não reaparecem depois que o app é inicializado.
 
 ## Supabase
 
@@ -79,15 +85,23 @@ E-mails autorizados:
 
 A allowlist não é uma equipe/RBAC; serve apenas para limitar quem pode ser proprietário/autorizado no app.
 
-## Próximo gate
+## Gate atual de homologação
 
-A estrutura de nuvem está pronta, mas o frontend ainda não deve depender do Supabase até a autenticação real ser ativada e testada.
+As decisões foram fechadas:
 
-Decisões/ações necessárias antes de ligar sincronização:
+1. autenticação por e-mail + senha;
+2. banco real começa limpo;
+3. sincronização manual durante a homologação;
+4. somente Luiz e Leonardo podem criar usuário Auth.
 
-1. criar/ativar os dois usuários em Supabase Auth;
-2. escolher autenticação por senha ou magic link;
-3. decidir se o primeiro envio para nuvem preserva/importa os dados locais de teste ou começa limpo;
-4. iniciar com sincronização manual (mais segura para homologação) ou automática entre aparelhos.
+O banco de negócio está vazio e o frontend já possui os controles de nuvem.
 
-Recomendação para homologação: senha + primeiro envio manual + download manual. Depois de validar em dois aparelhos, migrar para sincronização automática.
+Falta uma ação humana inevitável: cada pessoa deve escolher sua própria senha em **Primeiro acesso**. Dependendo da configuração padrão do Supabase Auth, o primeiro cadastro também pode exigir confirmação do e-mail. Depois que os dois acessos forem criados, testar em dois aparelhos:
+
+1. criar um atendimento real no aparelho A;
+2. enviar para nuvem;
+3. baixar no aparelho B;
+4. conferir cliente, equipamento, valores, fotos e assinatura;
+5. editar/fechar no aparelho B, enviar novamente e baixar no A.
+
+Só depois desse teste a sincronização automática deve substituir os botões manuais.
