@@ -8,7 +8,7 @@
   <title>Luiz Miguel | Refrigeração</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=10">
+  <link rel="stylesheet" href="./styles.css?v=11">
 </head>
 <body>
   <header class="topbar">
@@ -32,8 +32,8 @@
       <button class="new-os" data-action="new-os"><span>＋</span><div><b>Novo atendimento</b><small>Cliente → equipamento → registro</small></div></button>
 
       <div class="stats">
-        <article><strong id="openCount">0</strong><span>Em aberto</span></article>
-        <article><strong id="pendingPaymentCount">0</strong><span>A receber</span></article>
+        <article class="stat-click" data-jump-filter="open"><strong id="openCount">0</strong><span>Em aberto</span></article>
+        <article class="stat-click" data-jump-filter="receivable"><strong id="pendingPaymentCount">0</strong><span>A receber</span></article>
         <article><strong id="preventiveCount">0</strong><span>Preventivas</span></article>
       </div>
 
@@ -47,6 +47,12 @@
     <section class="view" data-view="orders">
       <div class="page-head"><div><span>Histórico técnico</span><h1>Atendimentos</h1></div><button class="primary compact" data-action="new-os">＋ Novo</button></div>
       <label class="search"><span>⌕</span><input id="orderSearch" placeholder="Cliente, equipamento ou atendimento"></label>
+      <div class="filter-chips" id="orderFilters">
+        <button class="active" data-order-filter="all">Todos</button>
+        <button data-order-filter="open">Em aberto</button>
+        <button data-order-filter="receivable">A receber</button>
+        <button data-order-filter="done">Finalizados</button>
+      </div>
       <div class="cards" id="orderList"></div>
     </section>
 
@@ -134,6 +140,6 @@
     </form>
   </dialog>
   <div class="toast" id="toast"></div>
-  <script src="./app.js?v=10"></script>
+  <script src="./app.js?v=11"></script>
 </body>
 </html>
