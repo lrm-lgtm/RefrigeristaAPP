@@ -13,6 +13,7 @@ const steps=[...document.querySelectorAll(".step")];
 const stepDots=[...document.querySelectorAll(".steps i")];
 let currentView="home";
 let orderFilter="all";
+let visitFilter="all";
 
 const MEDIA_DB_NAME="refrigerista-media-v1";
 const MEDIA_STORE="media";
@@ -80,7 +81,9 @@ function go(name){
 }
 document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.go)));
 
-function orderDetails(){try{return JSON.parse(localStorage.getItem("refrig-order-details")||"{}")}catch{return {}}}
+function visitRows(){try{return JSON.parse(localStorage.getItem("refrig-visits")||"[]")}catch{return []}}
+function saveVisits(rows){localStorage.setItem("refrig-visits",JSON.stringify(rows))}
+function orderDetails(){try{return JSON.parse(localStorage.getItem("refrig-order-details")||"{}")}catch{return {}}
 function saveOrderDetail(id,patch){const all=orderDetails();all[String(id)]={...(all[String(id)]||{}),...patch};localStorage.setItem("refrig-order-details",JSON.stringify(all))}
 function orders(){
   try{
@@ -175,6 +178,30 @@ function renderEquipment(filter=""){
   ).join(""):'<div class="empty-state">Nenhum equipamento encontrado.</div>';
 }
 
+function visitWhenLabel(v){
+  const d=new Date(v.scheduledAt);if(Number.isNaN(d.getTime()))return v.scheduledAt||"";
+  return d.toLocaleDateString("pt-BR")+" "+d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+}
+function visitCard(v){
+  const tag=v.status==="done"?"done":v.status==="cancelled"?"cancelled":"scheduled";
+  const label=({scheduled:"Agendado",done:"Concluído",cancelled:"Cancelado"})[v.status]||"Agendado";
+  const actions=v.status==="scheduled"
+    ?'<div class="visit-actions"><button type="button" data-visit-order="'+esc(v.id)+'">Virar atendimento</button><button type="button" data-visit-done="'+esc(v.id)+'">Concluir</button><button type="button" data-visit-cancel="'+esc(v.id)+'">Cancelar</button></div>'
+    :'';
+  return '<article class="visit-card '+tag+'" data-visit="'+esc(v.id)+'"><div class="visit-date"><b>'+esc(visitWhenLabel(v))+'</b><small>'+esc(v.durationMinutes||60)+' min</small></div><div class="visit-main"><div><small>'+esc(v.title||"Visita")+'</small><b>'+esc(v.customerName||"Contato")+'</b></div><span class="visit-status '+tag+'">'+label+'</span><p>'+esc([v.address,v.notes].filter(Boolean).join(" · ")||"Sem observações")+'</p>'+actions+'</div></article>';
+}
+function renderVisits(){
+  const rows=visitRows().slice().sort((a,b)=>String(a.scheduledAt).localeCompare(String(b.scheduledAt)));
+  const now=Date.now();
+  const upcoming=rows.filter(v=>v.status==="scheduled"&&new Date(v.scheduledAt).getTime()>=now-6*60*60*1000).slice(0,4);
+  const home=document.getElementById("homeVisits");
+  if(home)home.innerHTML=upcoming.length?upcoming.map(visitCard).join(""):'<div class="preventive-empty">Nenhuma visita agendada.</div>';
+  const q=String(document.getElementById("visitSearch")?.value||"").toLowerCase().trim();
+  const filtered=rows.filter(v=>visitFilter==="all"||v.status===visitFilter).filter(v=>!q||[v.customerName,v.phone,v.address,v.title,v.notes].join(" ").toLowerCase().includes(q));
+  const list=document.getElementById("visitList");
+  if(list)list.innerHTML=filtered.length?filtered.map(visitCard).join(""):'<div class="empty-state">Nenhuma visita neste filtro.</div>';
+  document.querySelectorAll("[data-visit-filter]").forEach(b=>b.classList.toggle("active",b.dataset.visitFilter===visitFilter));
+}
 function card(o){
   const pay=o.tag==="done"?'<span class="pay-mini '+esc(o.paymentStatus||"pending")+'">'+esc(paymentStatusLabel(o.paymentStatus))+'</span>':"";
   return '<article class="order-card" data-order="'+esc(o.id)+'"><div class="order-top"><div><small>Atendimento #'+esc(o.id)+(o.attendanceType?' · '+esc(o.attendanceType):'')+'</small><b>'+esc(o.customer)+'</b></div><span class="tag '+(o.tag==="wait"?"wait":o.tag==="done"?"done":"")+'">'+esc(o.status)+'</span></div><p><b>'+esc(o.equipment)+'</b><br>'+esc(o.complaint)+'</p><div class="order-footer"><span>'+esc(orderWhenLabel(o))+'</span><div class="order-money">'+pay+'<b>'+esc(o.value)+'</b></div></div></article>'
@@ -213,6 +240,7 @@ function render(){
  renderClients(document.getElementById("clientSearch")?.value||"");
  renderEquipment(document.getElementById("equipmentSearch")?.value||"");
  refreshCustomerOptions();
+ renderVisits();
 }
 render();
 
@@ -444,7 +472,7 @@ function openClientDetail(customerId){
   target.innerHTML=
     '<article class="registry-hero"><button class="registry-back" type="button">‹</button><div><small>Cliente</small><h1>'+esc(c.name)+'</h1><span>'+esc([c.phone,c.address].filter(Boolean).join(" · ")||"Sem telefone/endereço cadastrado")+'</span>'+(c.notes?'<p class="hero-note">'+esc(c.notes)+'</p>':'')+'</div></article>'+
     '<div class="registry-kpis"><div><small>Equipamentos</small><b>'+eq.length+'</b></div><div><small>Atendimentos</small><b>'+c.orders.length+'</b></div><div><small>Histórico</small><b>'+moneyValue(c.total)+'</b></div></div>'+
-    '<div class="client-actions"><button class="primary registry-new-os" type="button" data-new-client-os>＋ Novo atendimento</button>'+(c.phone?'<a class="secondary whatsapp-action" href="'+esc(whatsappHref(c.phone))+'" target="_blank" rel="noopener">WhatsApp</a>':'')+'<button class="secondary" type="button" data-edit-client>Editar</button></div>'+
+    '<div class="client-actions"><button class="primary registry-new-os" type="button" data-new-client-os>＋ Novo atendimento</button><button class="secondary" type="button" data-new-client-visit>◷ Visita</button>'+(c.phone?'<a class="secondary whatsapp-action" href="'+esc(whatsappHref(c.phone))+'" target="_blank" rel="noopener">WhatsApp</a>':'')+'<button class="secondary" type="button" data-edit-client>Editar</button></div>'+
     '<section class="registry-section"><div class="section-title"><div><b>Equipamentos</b><small>Prontuários deste cliente</small></div></div>'+
       (eq.length?eq.map(e=>'<article class="equipment-card clickable-card" data-equipment="'+esc(e.id)+'"><div class="equip-icon">❄</div><div><b>'+esc(e.name)+'</b><small>'+esc(e.room||"Local não informado")+'</small><em>'+esc([e.gas,e.voltage].filter(Boolean).join(" · ")||e.orders.length+" atendimento(s)")+'</em></div><span>›</span></article>').join(""):'<div class="empty-state">Nenhum equipamento cadastrado.</div>')+
     '</section>'+
@@ -452,6 +480,7 @@ function openClientDetail(customerId){
   setViewDirect("client-detail");
   target.querySelector(".registry-back").onclick=()=>go("clients");
   target.querySelector("[data-new-client-os]")?.addEventListener("click",()=>openNewOrder(c.id));
+  target.querySelector("[data-new-client-visit]")?.addEventListener("click",()=>openVisit(c.id));
   target.querySelector("[data-edit-client]")?.addEventListener("click",()=>openEditClient(c));
 }
 function openEquipmentDetail(equipmentId){
@@ -498,7 +527,7 @@ async function renderOrderMedia(orderId){
 function resizeSignature(){
   if(!signatureCanvas)return;
   const r=signatureCanvas.getBoundingClientRect(),ratio=Math.max(1,window.devicePixelRatio||1);
-  signatureCanvas.width=Math.floor(r.width*ratio);signatureCanvas.height=Math.floor(160*ratio);
+  signatureCanvas.width=Math.floor(r.width*ratio);signatureCanvas.height=Math.floor(r.height*ratio);
   signatureCtx.setTransform(ratio,0,0,ratio,0,0);signatureCtx.lineWidth=2.2;signatureCtx.lineCap="round";signatureCtx.strokeStyle="#0b3346";
 }
 function sigPoint(e){const r=signatureCanvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
@@ -563,7 +592,7 @@ document.getElementById("exportBackup")?.addEventListener("click",async()=>{
     const media=await getAllMedia();
     const packed=[];
     for(const m of media){packed.push({...m,blobData:m.blob?await blobToDataUrl(m.blob):null,blob:undefined})}
-    const backup={version:1,exportedAt:new Date().toISOString(),orders:JSON.parse(localStorage.getItem("refrig-orders")||"[]"),details:orderDetails(),media:packed};
+    const backup={version:2,exportedAt:new Date().toISOString(),orders:JSON.parse(localStorage.getItem("refrig-orders")||"[]"),visits:visitRows(),details:orderDetails(),media:packed};
     const blob=new Blob([JSON.stringify(backup)],{type:"application/json"});
     const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="refrigerista-backup-"+new Date().toISOString().slice(0,10)+".json";a.click();URL.revokeObjectURL(a.href);notify("Backup exportado.");
   }catch{notify("Não foi possível exportar o backup.")}
@@ -575,6 +604,7 @@ document.getElementById("importBackup")?.addEventListener("change",async e=>{
     const data=JSON.parse(await file.text());
     localStorage.setItem("refrig-orders",JSON.stringify(data.orders||[]));
     localStorage.setItem("refrig-order-details",JSON.stringify(data.details||{}));
+    localStorage.setItem("refrig-visits",JSON.stringify(data.visits||[]));
     localStorage.setItem("refrig-initialized","1");
     const db=await mediaDb();
     await new Promise((resolve,reject)=>{const tx=db.transaction(MEDIA_STORE,"readwrite");tx.objectStore(MEDIA_STORE).clear();tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
@@ -629,24 +659,27 @@ function renderGlobalSearch(term){
   const clients=customerRows().filter(c=>normalizeKey([c.name,c.phone,c.address,c.notes].join(" ")).includes(q)).slice(0,5);
   const eqs=equipmentRows().filter(e=>normalizeKey([e.customer,e.name,e.brand,e.model,e.serial,e.room,e.notes].join(" ")).includes(q)).slice(0,6);
   const ats=orders().filter(o=>normalizeKey([o.customer,o.phone,o.equipment,o.serial,o.complaint,o.diagnosis,o.service,o.materials,o.attendanceType].join(" ")).includes(q)).slice(0,8);
+  const vs=visitRows().filter(v=>normalizeKey([v.customerName,v.phone,v.address,v.title,v.notes].join(" ")).includes(q)).slice(0,6);
   let out="";
   if(clients.length)out+='<h3>Clientes</h3>'+clients.map(c=>'<button type="button" class="search-result" data-search-client="'+esc(c.id)+'"><span>'+esc(c.name)+'</span><small>'+esc([c.phone,c.address].filter(Boolean).join(" · "))+'</small></button>').join("");
   if(eqs.length)out+='<h3>Equipamentos</h3>'+eqs.map(e=>'<button type="button" class="search-result" data-search-equipment="'+esc(e.id)+'"><span>'+esc(e.name)+'</span><small>'+esc(e.customer+(e.serial?" · S/N "+e.serial:""))+'</small></button>').join("");
+  if(vs.length)out+='<h3>Visitas</h3>'+vs.map(v=>'<button type="button" class="search-result" data-search-visit="'+esc(v.id)+'"><span>'+esc(v.customerName+" · "+v.title)+'</span><small>'+esc(visitWhenLabel(v)+(v.address?" · "+v.address:""))+'</small></button>').join("");
   if(ats.length)out+='<h3>Atendimentos</h3>'+ats.map(o=>'<button type="button" class="search-result" data-search-order="'+esc(o.id)+'"><span>'+esc(o.customer+" · "+o.equipment)+'</span><small>'+esc(o.complaint||o.service||"")+'</small></button>').join("");
   target.innerHTML=out||'<div class="empty-state">Nada encontrado.</div>';
 }
 document.getElementById("globalSearchInput")?.addEventListener("input",e=>renderGlobalSearch(e.target.value));
 document.getElementById("globalSearchResults")?.addEventListener("click",e=>{
-  const c=e.target.closest("[data-search-client]"),eq=e.target.closest("[data-search-equipment]"),o=e.target.closest("[data-search-order]");
-  if(!c&&!eq&&!o)return;
+  const c=e.target.closest("[data-search-client]"),eq=e.target.closest("[data-search-equipment]"),o=e.target.closest("[data-search-order]"),v=e.target.closest("[data-search-visit]");
+  if(!c&&!eq&&!o&&!v)return;
   document.getElementById("globalSearchDialog")?.close();
-  if(c)openClientDetail(c.dataset.searchClient);else if(eq)openEquipmentDetail(eq.dataset.searchEquipment);else openOrderDetail(o.dataset.searchOrder);
+  if(c)openClientDetail(c.dataset.searchClient);else if(eq)openEquipmentDetail(eq.dataset.searchEquipment);else if(v){go("visits");document.getElementById("visitSearch").value="";renderVisits();}else openOrderDetail(o.dataset.searchOrder);
 });
 
 document.getElementById("clearLocalData")?.addEventListener("click",async()=>{
   if(!confirm("Apagar atendimentos, fotos e assinaturas salvos neste aparelho? A nuvem não será apagada."))return;
   localStorage.setItem("refrig-orders","[]");
   localStorage.setItem("refrig-order-details","{}");
+  localStorage.setItem("refrig-visits","[]");
   localStorage.setItem("refrig-initialized","1");
   try{
     const db=await mediaDb();
@@ -655,4 +688,73 @@ document.getElementById("clearLocalData")?.addEventListener("click",async()=>{
   render();
   document.getElementById("settingsDialog")?.close();
   notify("Dados locais apagados.");
+});
+
+
+const visitDialog=document.getElementById("visitDialog");
+const visitForm=document.getElementById("visitForm");
+function openVisit(customerId=""){
+  visitForm.reset();
+  if(customerId){
+    const c=customerRows().find(x=>x.id===customerId);
+    if(c){
+      visitForm.elements.customerName.value=c.name||"";
+      visitForm.elements.phone.value=c.phone||"";
+      visitForm.elements.address.value=c.address||"";
+    }
+  }
+  const d=new Date(Date.now()+60*60*1000);d.setMinutes(0,0,0);
+  const local=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  visitForm.elements.scheduledAt.value=local;
+  visitDialog.showModal();
+}
+document.querySelectorAll('[data-action="new-visit"]').forEach(b=>b.addEventListener("click",()=>openVisit()));
+document.getElementById("cancelVisit")?.addEventListener("click",()=>visitDialog.close());
+visitForm?.elements.customerName?.addEventListener("change",()=>{
+  const name=String(visitForm.elements.customerName.value||"").trim();
+  const c=customerRows().find(x=>normalizeKey(x.name)===normalizeKey(name));
+  if(c){
+    if(!visitForm.elements.phone.value)visitForm.elements.phone.value=c.phone||"";
+    if(!visitForm.elements.address.value)visitForm.elements.address.value=c.address||"";
+  }
+});
+visitForm?.addEventListener("submit",e=>{
+  e.preventDefault();const fd=new FormData(visitForm);
+  const name=String(fd.get("customerName")||"").trim();
+  const customer=customerRows().find(x=>normalizeKey(x.name)===normalizeKey(name)||(
+    String(fd.get("phone")||"").replace(/\D/g,"")&&String(x.phone||"").replace(/\D/g,"")===String(fd.get("phone")||"").replace(/\D/g,"")
+  ));
+  const row={
+    id:crypto.randomUUID(),syncKey:crypto.randomUUID(),customerId:customer?.id||"",
+    customerName:name,phone:String(fd.get("phone")||"").trim(),address:String(fd.get("address")||"").trim(),
+    title:String(fd.get("title")||"Visita técnica"),notes:String(fd.get("notes")||"").trim(),
+    scheduledAt:String(fd.get("scheduledAt")||""),durationMinutes:Number(fd.get("durationMinutes")||60),
+    status:"scheduled",createdAt:new Date().toISOString()
+  };
+  const rows=visitRows();rows.push(row);saveVisits(rows);localStorage.setItem("refrig-initialized","1");
+  visitDialog.close();render();notify("Visita agendada.");
+});
+function updateVisit(id,patch){
+  const rows=visitRows().map(v=>String(v.id)===String(id)?{...v,...patch,updatedAt:new Date().toISOString()}:v);
+  saveVisits(rows);render();
+}
+document.addEventListener("click",e=>{
+  const done=e.target.closest("[data-visit-done]");if(done){updateVisit(done.dataset.visitDone,{status:"done"});notify("Visita concluída.");return}
+  const cancel=e.target.closest("[data-visit-cancel]");if(cancel){if(confirm("Cancelar esta visita?")){updateVisit(cancel.dataset.visitCancel,{status:"cancelled"});notify("Visita cancelada.");}return}
+  const order=e.target.closest("[data-visit-order]");if(order){
+    const v=visitRows().find(x=>String(x.id)===String(order.dataset.visitOrder));if(!v)return;
+    const c=customerRows().find(x=>x.id===v.customerId);
+    openNewOrder(c?.id||"");
+    if(!c){
+      form.elements.customer.value=v.customerName||"";
+      form.elements.phone.value=v.phone||"";
+      if(form.elements.address)form.elements.address.value=v.address||"";
+    }
+    if(form.elements.scheduledAt)form.elements.scheduledAt.value=v.scheduledAt?new Date(new Date(v.scheduledAt).getTime()-new Date(v.scheduledAt).getTimezoneOffset()*60000).toISOString().slice(0,16):"";
+    notify("Dados da visita carregados no atendimento.");
+  }
+});
+document.getElementById("visitSearch")?.addEventListener("input",renderVisits);
+document.getElementById("visitFilters")?.addEventListener("click",e=>{
+  const b=e.target.closest("[data-visit-filter]");if(!b)return;visitFilter=b.dataset.visitFilter;renderVisits();
 });
