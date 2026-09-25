@@ -85,10 +85,11 @@ function saveOrderDetail(id,patch){const all=orderDetails();all[String(id)]={...
 function orders(){
   try{
     const local=JSON.parse(localStorage.getItem("refrig-orders")||"[]");
-    const base=local.length?local:demoOrders;
+    const initialized=localStorage.getItem("refrig-initialized")==="1";
+    const base=local.length||initialized?local:demoOrders;
     const detail=orderDetails();
     return base.map(o=>({...o,...(detail[String(o.id)]||{})}));
-  }catch{return demoOrders}
+  }catch{return localStorage.getItem("refrig-initialized")==="1"?[]:demoOrders}
 }
 
 function normalizeKey(v){
@@ -307,7 +308,7 @@ form.addEventListener("submit",async e=>{
     history:[{when:new Date().toISOString(),label:"Atendimento aberto",detail:String(fd.get("complaint")||"Sem relato inicial")}]
   };
   const initialFiles=[...(form.elements.photos?.files||[])];
-  const saved=JSON.parse(localStorage.getItem("refrig-orders")||"[]");saved.unshift(item);localStorage.setItem("refrig-orders",JSON.stringify(saved));
+  const saved=JSON.parse(localStorage.getItem("refrig-orders")||"[]");saved.unshift(item);localStorage.setItem("refrig-orders",JSON.stringify(saved));localStorage.setItem("refrig-initialized","1");
   try{await saveOrderFiles(item.id,initialFiles,"initial")}catch{}
   render();dialog.close();go("orders");notify("Atendimento criado e registrado no histórico.");
 });
@@ -573,6 +574,7 @@ document.getElementById("importBackup")?.addEventListener("change",async e=>{
     const data=JSON.parse(await file.text());
     localStorage.setItem("refrig-orders",JSON.stringify(data.orders||[]));
     localStorage.setItem("refrig-order-details",JSON.stringify(data.details||{}));
+    localStorage.setItem("refrig-initialized","1");
     const db=await mediaDb();
     await new Promise((resolve,reject)=>{const tx=db.transaction(MEDIA_STORE,"readwrite");tx.objectStore(MEDIA_STORE).clear();tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
     for(const m of data.media||[]){await putMedia({...m,blob:m.blobData?dataUrlToBlob(m.blobData):null,blobData:undefined})}
@@ -638,4 +640,18 @@ document.getElementById("globalSearchResults")?.addEventListener("click",e=>{
   if(!c&&!eq&&!o)return;
   document.getElementById("globalSearchDialog")?.close();
   if(c)openClientDetail(c.dataset.searchClient);else if(eq)openEquipmentDetail(eq.dataset.searchEquipment);else openOrderDetail(o.dataset.searchOrder);
+});
+
+document.getElementById("clearLocalData")?.addEventListener("click",async()=>{
+  if(!confirm("Apagar atendimentos, fotos e assinaturas salvos neste aparelho? A nuvem não será apagada."))return;
+  localStorage.setItem("refrig-orders","[]");
+  localStorage.setItem("refrig-order-details","{}");
+  localStorage.setItem("refrig-initialized","1");
+  try{
+    const db=await mediaDb();
+    await new Promise((resolve,reject)=>{const tx=db.transaction(MEDIA_STORE,"readwrite");tx.objectStore(MEDIA_STORE).clear();tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
+  }catch{}
+  render();
+  document.getElementById("settingsDialog")?.close();
+  notify("Dados locais apagados.");
 });
