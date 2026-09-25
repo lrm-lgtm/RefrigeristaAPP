@@ -83,7 +83,12 @@ document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=
 function orderDetails(){try{return JSON.parse(localStorage.getItem("refrig-order-details")||"{}")}catch{return {}}}
 function saveOrderDetail(id,patch){const all=orderDetails();all[String(id)]={...(all[String(id)]||{}),...patch};localStorage.setItem("refrig-order-details",JSON.stringify(all))}
 function orders(){
-  try{const base=[...JSON.parse(localStorage.getItem("refrig-orders")||"[]"),...demoOrders],detail=orderDetails();return base.map(o=>({...o,...(detail[String(o.id)]||{})}))}catch{return demoOrders}
+  try{
+    const local=JSON.parse(localStorage.getItem("refrig-orders")||"[]");
+    const base=local.length?local:demoOrders;
+    const detail=orderDetails();
+    return base.map(o=>({...o,...(detail[String(o.id)]||{})}));
+  }catch{return demoOrders}
 }
 
 function normalizeKey(v){
@@ -112,9 +117,9 @@ function customerRows(){
   const map=new Map();
   for(const o of orders()){
     const id=customerIdOf(o);
-    if(!map.has(id)) map.set(id,{id,name:(o.customer||"Cliente").trim(),phone:o.phone||"",orders:[],equipmentIds:new Set(),total:0});
+    if(!map.has(id)) map.set(id,{id,name:(o.customer||"Cliente").trim(),phone:o.phone||"",address:o.address||"",notes:o.customerNotes||"",orders:[],equipmentIds:new Set(),total:0});
     const row=map.get(id);
-    row.phone=row.phone||o.phone||"";
+    row.phone=row.phone||o.phone||""; row.address=row.address||o.address||""; row.notes=row.notes||o.customerNotes||"";
     row.orders.push({...o,customerId:id,equipmentId:equipmentIdOf(o)});
     row.equipmentIds.add(equipmentIdOf(o));
     row.total+=orderTotalValue(o);
@@ -129,11 +134,11 @@ function equipmentRows(){
     if(!map.has(id)) map.set(id,{
       id,key,customerId,customer:o.customer||"Cliente",name:o.equipment||"Equipamento",
       type:o.equipmentType||"",brand:o.brand||"",model:o.model||"",capacity:o.capacity||"",
-      voltage:o.voltage||"",gas:o.gas||"",room:o.room||"",serial:o.serial||"",
+      voltage:o.voltage||"",gas:o.gas||"",room:o.room||"",serial:o.serial||"",notes:o.equipmentNotes||"",
       orders:[],total:0,nextPreventive:""
     });
     const row=map.get(id);
-    for(const f of ["type","brand","model","capacity","voltage","gas","room","serial"]){ if(!row[f]&&o[f]) row[f]=o[f]; }
+    for(const f of ["type","brand","model","capacity","voltage","gas","room","serial","notes"]){ if(!row[f]&&o[f]) row[f]=o[f]; }
     row.orders.push({...o,customerId,equipmentId:id});
     row.total+=orderTotalValue(o);
     if(o.nextPreventive) row.nextPreventive=o.nextPreventive;
@@ -230,6 +235,8 @@ function openNewOrder(customerId="",equipmentId=""){
   if(c){
     form.elements.customer.value=c.name;
     if(c.phone)form.elements.phone.value=c.phone;
+    if(form.elements.address&&c.address)form.elements.address.value=c.address;
+    if(form.elements.customerNotes&&c.notes)form.elements.customerNotes.value=c.notes;
   }
   setStep(c?2:1);
   dialog.showModal();
@@ -245,11 +252,13 @@ document.querySelectorAll("[data-prev]").forEach(b=>b.addEventListener("click",(
 form.elements.customer?.addEventListener("change",()=>{
   const c=customerRows().find(x=>x.name===String(form.elements.customer.value||"").trim());
   if(c?.phone&&!form.elements.phone.value)form.elements.phone.value=c.phone;
+  if(c?.address&&form.elements.address&&!form.elements.address.value)form.elements.address.value=c.address;
+  if(c?.notes&&form.elements.customerNotes&&!form.elements.customerNotes.value)form.elements.customerNotes.value=c.notes;
 });
 document.getElementById("existingEquipmentSelect")?.addEventListener("change",e=>{
   if(!e.target.value)return;
   const row=equipmentRows().find(x=>x.id===e.target.value); if(!row)return;
-  const values={type:row.type,brand:row.brand,model:row.model,capacity:row.capacity,voltage:row.voltage,gas:row.gas,room:row.room,serial:row.serial};
+  const values={type:row.type,brand:row.brand,model:row.model,capacity:row.capacity,voltage:row.voltage,gas:row.gas,room:row.room,serial:row.serial,equipmentNotes:row.notes};
   for(const [name,value] of Object.entries(values)){if(form.elements[name])form.elements[name].value=value||""}
 });
 form.addEventListener("submit",async e=>{
@@ -267,6 +276,8 @@ form.addEventListener("submit",async e=>{
     customer:customerName,
     customerId,
     phone,
+    address:String(fd.get("address")||"").trim(),
+    customerNotes:String(fd.get("customerNotes")||"").trim(),
     equipment:equipmentText,
     equipmentKey,
     equipmentId,
@@ -278,6 +289,7 @@ form.addEventListener("submit",async e=>{
     gas:String(fd.get("gas")||"").trim(),
     room:String(fd.get("room")||"").trim(),
     serial:String(fd.get("serial")||"").trim(),
+    equipmentNotes:String(fd.get("equipmentNotes")||"").trim(),
     status:"Aberta",tag:"wait",
     complaint:fd.get("complaint")||"Sem relato inicial",
     when:"Agora",value:"A orçar",
@@ -352,12 +364,49 @@ function openOrderDetail(id){
       '<section class="info-card wide"><span>Fotos e assinatura</span><div class="media-gallery" id="orderMediaGallery"><div class="media-loading">Carregando evidências…</div></div></section>'+
       '<section class="info-card wide"><span>Histórico</span><div class="history-list">'+detailHistory(o)+'</div></section>'+
     '</div>'+
-    (o.tag==="done"?'<button class="primary full detail-main-action" data-reopen>Reabrir atendimento</button>':'<button class="primary full detail-main-action" data-finish>Finalizar atendimento</button>');
+    (o.tag==="done"
+      ?'<div class="detail-actions">'+((o.paymentStatus||"pending")!=="paid"?'<button class="primary" data-mark-paid>Marcar como pago</button>':'')+'<button class="secondary" data-share>Compartilhar resumo</button><button class="secondary" data-print>Comprovante</button><button class="secondary" data-reopen>Reabrir</button></div>'
+      :'<button class="primary full detail-main-action" data-finish>Finalizar atendimento</button>');
   setViewDirect("detail");
   detailContent.querySelector(".detail-back").onclick=()=>setViewDirect(lastNonDetailView||"orders");
   detailContent.querySelector("[data-finish]")?.addEventListener("click",()=>openFinish(o));
   detailContent.querySelector("[data-reopen]")?.addEventListener("click",()=>{saveOrderDetail(o.id,{status:"Em atendimento",tag:"service"});render();openOrderDetail(o.id);notify("Atendimento reaberto.")});
+  detailContent.querySelector("[data-mark-paid]")?.addEventListener("click",()=>markOrderPaid(o));
+  detailContent.querySelector("[data-share]")?.addEventListener("click",()=>shareOrder(o));
+  detailContent.querySelector("[data-print]")?.addEventListener("click",()=>printReceipt(o));
   renderOrderMedia(o.id);
+}
+function markOrderPaid(o){
+  const total=orderTotalValue(o);
+  const history=[...(o.history||[]),{when:"Agora",label:"Pagamento recebido",detail:(o.payment||"Pagamento")+" · "+moneyValue(total)}];
+  saveOrderDetail(o.id,{paymentStatus:"paid",amountPaid:total,history});
+  render();openOrderDetail(o.id);notify("Pagamento marcado como recebido.");
+}
+function orderSummaryText(o){
+  const total=orderTotalValue(o);
+  return [
+    "Atendimento #"+o.id,
+    "Cliente: "+(o.customer||""),
+    "Equipamento: "+(o.equipment||""),
+    o.diagnosis?"Diagnóstico: "+o.diagnosis:"",
+    o.service?"Serviço: "+o.service:"",
+    "Total: "+moneyValue(total),
+    "Pagamento: "+paymentStatusLabel(o.paymentStatus)
+  ].filter(Boolean).join("\n");
+}
+async function shareOrder(o){
+  const text=orderSummaryText(o);
+  try{
+    if(navigator.share){await navigator.share({title:"Atendimento #"+o.id,text});return}
+    await navigator.clipboard.writeText(text);notify("Resumo copiado.");
+  }catch{}
+}
+function printReceipt(o){
+  const total=orderTotalValue(o);
+  const w=window.open("","_blank","width=720,height=900");
+  if(!w){notify("Libere pop-ups para gerar o comprovante.");return}
+  w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Atendimento '+esc(o.id)+'</title><style>body{font:15px Arial,sans-serif;color:#1d2730;max-width:720px;margin:40px auto;padding:0 24px}h1{color:#073d59}small{color:#6d7b84}.box{border:1px solid #dfe7eb;border-radius:12px;padding:14px;margin:12px 0}.total{font-size:24px;font-weight:700}.sig{margin-top:40px;border-top:1px solid #999;padding-top:8px;width:280px}@media print{button{display:none}}</style></head><body><h1>Luiz Miguel</h1><small>Ar Condicionado e Refrigeração</small><h2>Comprovante de atendimento #'+esc(o.id)+'</h2><div class="box"><b>Cliente</b><br>'+esc(o.customer||"")+'<br><small>'+esc(o.phone||"")+'</small></div><div class="box"><b>Equipamento</b><br>'+esc(o.equipment||"")+'</div><div class="box"><b>Diagnóstico</b><br>'+esc(o.diagnosis||"Não informado")+'</div><div class="box"><b>Serviço executado</b><br>'+esc(o.service||"Não informado")+(o.materials?'<br><small>Materiais: '+esc(o.materials)+'</small>':'')+'</div><div class="box"><b>Total</b><div class="total">'+moneyValue(total)+'</div><small>'+esc(o.payment||"")+' · '+esc(paymentStatusLabel(o.paymentStatus))+'</small></div>'+(o.warrantyUntil?'<p><b>Garantia registrada até:</b> '+esc(formatDateBR(o.warrantyUntil))+'</p>':'')+'<div class="sig">Assinatura / confirmação do cliente</div><br><button onclick="window.print()">Imprimir / Salvar PDF</button></body></html>');
+  w.document.close();
 }
 function orderHistoryCard(o){
   const total=orderTotalValue(o);
@@ -368,7 +417,7 @@ function openClientDetail(customerId){
   const eq=equipmentRows().filter(e=>e.customerId===c.id);
   const target=document.getElementById("clientDetailContent");
   target.innerHTML=
-    '<article class="registry-hero"><button class="registry-back" type="button">‹</button><div><small>Cliente</small><h1>'+esc(c.name)+'</h1><span>'+esc(c.phone||"Sem telefone cadastrado")+'</span></div></article>'+
+    '<article class="registry-hero"><button class="registry-back" type="button">‹</button><div><small>Cliente</small><h1>'+esc(c.name)+'</h1><span>'+esc([c.phone,c.address].filter(Boolean).join(" · ")||"Sem telefone/endereço cadastrado")+'</span>'+(c.notes?'<p class="hero-note">'+esc(c.notes)+'</p>':'')+'</div></article>'+
     '<div class="registry-kpis"><div><small>Equipamentos</small><b>'+eq.length+'</b></div><div><small>Atendimentos</small><b>'+c.orders.length+'</b></div><div><small>Histórico</small><b>'+moneyValue(c.total)+'</b></div></div>'+
     '<div class="client-actions"><button class="primary registry-new-os" type="button" data-new-client-os>＋ Novo atendimento</button>'+(c.phone?'<a class="secondary whatsapp-action" href="'+esc(whatsappHref(c.phone))+'" target="_blank" rel="noopener">WhatsApp</a>':'')+'</div>'+
     '<section class="registry-section"><div class="section-title"><div><b>Equipamentos</b><small>Prontuários deste cliente</small></div></div>'+
@@ -388,7 +437,7 @@ function openEquipmentDetail(equipmentId){
   ].filter(Boolean);
   target.innerHTML=
     '<article class="registry-hero equipment-hero"><button class="registry-back" type="button">‹</button><div><small>Equipamento · '+esc(e.customer)+'</small><h1>'+esc(e.name)+'</h1><span>'+(e.nextPreventive?'Próxima preventiva: '+esc(e.nextPreventive):e.orders.length+' atendimento(s) no histórico')+'</span></div></article>'+
-    '<section class="equipment-specs">'+details.map(d=>'<div><small>'+esc(d[0])+'</small><b>'+esc(d[1])+'</b></div>').join("")+'</section>'+
+    '<section class="equipment-specs">'+details.map(d=>'<div><small>'+esc(d[0])+'</small><b>'+esc(d[1])+'</b></div>').join("")+'</section>'+(e.notes?'<section class="equipment-note"><small>Observação técnica</small><b>'+esc(e.notes)+'</b></section>':'')+
     '<button class="primary full registry-new-os" type="button" data-new-equipment-os>＋ Novo atendimento neste equipamento</button>'+
     '<section class="registry-section"><div class="section-title"><div><b>Prontuário técnico</b><small>Todo o histórico deste equipamento</small></div><strong>'+moneyValue(e.total)+'</strong></div><div class="mini-os-list">'+e.orders.slice().reverse().map(orderHistoryCard).join("")+'</div></section>';
   setViewDirect("equipment-detail");
@@ -453,4 +502,54 @@ finishForm?.addEventListener("submit",async e=>{
     if(patch.signed)await saveSignatureMedia(id);
   }catch{}
   saveOrderDetail(id,patch);finishDialog.close();render();openOrderDetail(id);notify("Atendimento salvo no histórico.");
+});
+
+document.getElementById("quickServices")?.addEventListener("click",e=>{
+  const b=e.target.closest("[data-service-template]"); if(!b)return;
+  const field=finishForm.elements.service;
+  const text=b.dataset.serviceTemplate;
+  field.value=field.value?field.value+"; "+text:text;
+  field.focus();
+});
+
+async function getAllMedia(){
+  const db=await mediaDb();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(MEDIA_STORE,"readonly");
+    const req=tx.objectStore(MEDIA_STORE).getAll();
+    req.onsuccess=()=>resolve(req.result||[]);req.onerror=()=>reject(req.error);
+  });
+}
+function blobToDataUrl(blob){
+  return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(blob)});
+}
+function dataUrlToBlob(dataUrl){
+  const [head,data]=dataUrl.split(","),mime=(head.match(/data:(.*?);/)||[])[1]||"application/octet-stream";
+  const bin=atob(data),arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+  return new Blob([arr],{type:mime});
+}
+document.getElementById("settingsBtn")?.addEventListener("click",()=>document.getElementById("settingsDialog")?.showModal());
+document.getElementById("exportBackup")?.addEventListener("click",async()=>{
+  try{
+    const media=await getAllMedia();
+    const packed=[];
+    for(const m of media){packed.push({...m,blobData:m.blob?await blobToDataUrl(m.blob):null,blob:undefined})}
+    const backup={version:1,exportedAt:new Date().toISOString(),orders:JSON.parse(localStorage.getItem("refrig-orders")||"[]"),details:orderDetails(),media:packed};
+    const blob=new Blob([JSON.stringify(backup)],{type:"application/json"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="refrigerista-backup-"+new Date().toISOString().slice(0,10)+".json";a.click();URL.revokeObjectURL(a.href);notify("Backup exportado.");
+  }catch{notify("Não foi possível exportar o backup.")}
+});
+document.getElementById("importBackup")?.addEventListener("change",async e=>{
+  const file=e.target.files?.[0];if(!file)return;
+  if(!confirm("Restaurar este backup e substituir os dados locais atuais?")){e.target.value="";return}
+  try{
+    const data=JSON.parse(await file.text());
+    localStorage.setItem("refrig-orders",JSON.stringify(data.orders||[]));
+    localStorage.setItem("refrig-order-details",JSON.stringify(data.details||{}));
+    const db=await mediaDb();
+    await new Promise((resolve,reject)=>{const tx=db.transaction(MEDIA_STORE,"readwrite");tx.objectStore(MEDIA_STORE).clear();tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
+    for(const m of data.media||[]){await putMedia({...m,blob:m.blobData?dataUrlToBlob(m.blobData):null,blobData:undefined})}
+    render();document.getElementById("settingsDialog").close();notify("Backup restaurado.");
+  }catch{notify("Backup inválido ou corrompido.")}
+  e.target.value="";
 });
