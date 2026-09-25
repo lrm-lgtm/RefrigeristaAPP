@@ -8,7 +8,7 @@
   <title>Luiz Miguel | Refrigeração</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=12">
+  <link rel="stylesheet" href="./styles.css?v=13">
 </head>
 <body>
   <header class="topbar">
@@ -120,6 +120,16 @@
       </section>
 
       <section class="step" data-step="3">
+        <div class="grid2"><label>Tipo de atendimento
+          <select name="attendanceType">
+            <option>Manutenção corretiva</option>
+            <option>Manutenção preventiva</option>
+            <option>Instalação</option>
+            <option>Orçamento / diagnóstico</option>
+            <option>Retorno de garantia</option>
+            <option>Outro</option>
+          </select>
+        </label><label>Agendado para <small>opcional</small><input name="scheduledAt" type="datetime-local"></label></div>
         <label>Problema relatado<textarea name="complaint" rows="4" placeholder="Ex.: não está gelando corretamente"></textarea></label>
         <label>Fotos do atendimento <small>opcional</small><input name="photos" type="file" accept="image/*" capture="environment" multiple></label>
         <div class="photo-hint"><span>📷</span><p><b>Sem vistoria obrigatória</b><small>Adicione fotos antes, durante ou depois quando fizer sentido.</small></p></div>
@@ -153,6 +163,37 @@
       <div class="actions"><button type="button" class="secondary" id="cancelFinish">Cancelar</button><button class="primary" type="submit">Finalizar atendimento</button></div>
     </form>
   </dialog>
+  <dialog id="globalSearchDialog" class="search-dialog">
+    <form method="dialog">
+      <header><div><span>Busca geral</span><h2>Encontrar no histórico</h2></div><button value="cancel">×</button></header>
+      <label class="search global-search"><span>⌕</span><input id="globalSearchInput" autocomplete="off" placeholder="Cliente, telefone, série, equipamento, defeito..."></label>
+      <div id="globalSearchResults" class="global-results"><div class="empty-state">Digite algo para pesquisar.</div></div>
+    </form>
+  </dialog>
+  <dialog id="editClientDialog" class="edit-dialog">
+    <form method="dialog" id="editClientForm">
+      <header><div><span>Cadastro</span><h2>Editar cliente</h2></div><button value="cancel">×</button></header>
+      <input type="hidden" name="customerId">
+      <label>Nome<input name="name" required></label>
+      <label>Telefone<input name="phone" inputmode="tel"></label>
+      <label>Endereço<input name="address"></label>
+      <label>Observações<textarea name="notes" rows="3"></textarea></label>
+      <div class="actions"><button type="button" class="secondary" data-edit-cancel>Cancelar</button><button type="submit" class="primary">Salvar</button></div>
+    </form>
+  </dialog>
+  <dialog id="editEquipmentDialog" class="edit-dialog">
+    <form method="dialog" id="editEquipmentForm">
+      <header><div><span>Prontuário</span><h2>Editar equipamento</h2></div><button value="cancel">×</button></header>
+      <input type="hidden" name="equipmentId">
+      <label>Tipo<select name="type"><option>Ar-condicionado Split</option><option>Geladeira</option><option>Freezer</option><option>Câmara fria</option><option>Expositor</option><option>Outro</option></select></label>
+      <div class="grid2"><label>Marca<input name="brand"></label><label>Modelo<input name="model"></label></div>
+      <div class="grid2"><label>Capacidade<input name="capacity"></label><label>Tensão<input name="voltage"></label></div>
+      <div class="grid2"><label>Gás<input name="gas"></label><label>Ambiente<input name="room"></label></div>
+      <label>Nº de série<input name="serial"></label>
+      <label>Observações<textarea name="notes" rows="3"></textarea></label>
+      <div class="actions"><button type="button" class="secondary" data-edit-cancel>Cancelar</button><button type="submit" class="primary">Salvar</button></div>
+    </form>
+  </dialog>
   <dialog id="settingsDialog" class="settings-dialog">
     <form method="dialog">
       <header><div><span>RefrigeristaAPP</span><h2>Dados e backup</h2></div><button value="cancel">×</button></header>
@@ -168,6 +209,6 @@
     </form>
   </dialog>
   <div class="toast" id="toast"></div>
-  <script src="./app.js?v=12"></script>
+  <script src="./app.js?v=13"></script>
 </body>
 </html>
