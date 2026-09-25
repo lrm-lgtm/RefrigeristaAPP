@@ -8,7 +8,7 @@
   <title>Luiz Miguel | Refrigeração</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=20">
+  <link rel="stylesheet" href="./styles.css?v=21">
 </head>
 <body>
   <header class="topbar">
@@ -19,7 +19,20 @@
         <small>AR CONDICIONADO E REFRIGERAÇÃO</small>
       </div>
     </div>
-    <div class="top-actions"><button class="round" id="installBtn" hidden>⇩</button><button class="round" id="settingsBtn" aria-label="Mais opções">⋯</button></div>
+    <div class="top-actions">
+      <button class="top-action install-action" id="installBtn" hidden aria-label="Instalar aplicativo" title="Instalar aplicativo">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3v10m0 0 4-4m-4 4-4-4M5 15v3.25A2.75 2.75 0 0 0 7.75 21h8.5A2.75 2.75 0 0 0 19 18.25V15"/>
+        </svg>
+      </button>
+      <button class="top-action menu-action" id="settingsBtn" aria-label="Configurações e opções" title="Configurações">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 7h10m4 0h2M4 17h2m4 0h10M14 4v6M6 14v6"/>
+          <circle cx="14" cy="7" r="2.25"/>
+          <circle cx="8" cy="17" r="2.25"/>
+        </svg>
+      </button>
+    </div>
   </header>
 
   <main>
@@ -300,7 +313,7 @@
   </dialog>
   <div class="toast" id="toast"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./app.js?v=20"></script>
-  <script src="./cloud.js?v=20"></script>
+  <script src="./app.js?v=21"></script>
+  <script src="./cloud.js?v=21"></script>
 </body>
 </html>
