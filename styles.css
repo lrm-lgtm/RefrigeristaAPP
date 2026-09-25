@@ -204,3 +204,15 @@
 .settings-dialog form{padding:18px}.settings-card{background:#f4f8fa;border:1px solid var(--line);border-radius:14px;padding:14px}.settings-card b,.settings-card small{display:block}.settings-card small{margin-top:6px;color:var(--muted);line-height:1.45}
 .settings-actions{display:grid;gap:8px;margin-top:12px}.import-label{text-align:center;cursor:pointer}.import-label input{display:none}.settings-note{display:block;margin-top:12px;color:var(--muted);line-height:1.4}
 @media(max-width:420px){.detail-actions{grid-template-columns:1fr}}
+
+
+/* v13 — agenda, busca global e edição de prontuários */
+.preventive>div.overdue{background:#fff6f2}.preventive>div.overdue .date{color:#b65b3d}.preventive>div.overdue small{color:#a6624b}
+.search-dialog,.edit-dialog{width:min(620px,calc(100% - 24px));max-height:90dvh;border:0;border-radius:20px;padding:0;overflow:auto}
+.search-dialog form,.edit-dialog form{padding:18px}
+.global-search{margin:12px 0}.global-results{display:grid;gap:7px}.global-results h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:12px 2px 2px}
+.search-result{width:100%;border:1px solid var(--line);background:#fff;border-radius:13px;padding:11px 12px;text-align:left}
+.search-result span,.search-result small{display:block}.search-result span{font-weight:800;color:var(--text)}.search-result small{color:var(--muted);margin-top:3px}
+.edit-dialog label{display:block;font-size:12px;font-weight:800;margin-bottom:13px}.edit-dialog input,.edit-dialog select,.edit-dialog textarea{width:100%;margin-top:6px;border:1px solid #cedbe1;border-radius:12px;padding:12px;font:inherit;font-size:16px;background:#fff}
+.client-actions{grid-template-columns:1fr auto auto}.equipment-actions{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px}.equipment-actions .registry-new-os{margin-top:0}
+@media(max-width:520px){.client-actions,.equipment-actions{grid-template-columns:1fr}.edit-dialog .grid2{grid-template-columns:1fr}}
