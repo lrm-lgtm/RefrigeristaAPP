@@ -216,3 +216,7 @@
 .edit-dialog label{display:block;font-size:12px;font-weight:800;margin-bottom:13px}.edit-dialog input,.edit-dialog select,.edit-dialog textarea{width:100%;margin-top:6px;border:1px solid #cedbe1;border-radius:12px;padding:12px;font:inherit;font-size:16px;background:#fff}
 .client-actions{grid-template-columns:1fr auto auto}.equipment-actions{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px}.equipment-actions .registry-new-os{margin-top:0}
 @media(max-width:520px){.client-actions,.equipment-actions{grid-template-columns:1fr}.edit-dialog .grid2{grid-template-columns:1fr}}
+
+
+/* v14 — datas persistentes e garantia no prontuário */
+.equipment-specs .spec-warranty{background:#eef8f3;border-color:#cfe7da}.equipment-specs .spec-warranty b{color:#15835e}
