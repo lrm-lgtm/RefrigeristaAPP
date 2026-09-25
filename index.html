@@ -8,7 +8,7 @@
   <title>Luiz Miguel | Refrigeração</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=21">
+  <link rel="stylesheet" href="./styles.css?v=22">
 </head>
 <body>
   <header class="topbar">
@@ -39,7 +39,12 @@
     <section class="view active" data-view="home">
       <div class="hello">
         <div><span>Seu controle técnico</span><h1>Meu dia</h1></div>
-        <button class="search-btn">⌕</button>
+        <button class="search-btn" aria-label="Buscar" title="Buscar">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="6.5"></circle>
+            <path d="m16 16 4 4"></path>
+          </svg>
+        </button>
       </div>
 
       <div class="quick-start">
@@ -313,7 +318,7 @@
   </dialog>
   <div class="toast" id="toast"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./app.js?v=21"></script>
-  <script src="./cloud.js?v=21"></script>
+  <script src="./app.js?v=22"></script>
+  <script src="./cloud.js?v=22"></script>
 </body>
 </html>
