@@ -303,7 +303,8 @@ form.addEventListener("submit",async e=>{
     complaint:fd.get("complaint")||"Sem relato inicial",
     when:"Agora",value:"A orçar",
     initialPhotos:(form.elements.photos?.files||[]).length,
-    createdAt:new Date().toISOString()
+    createdAt:new Date().toISOString(),
+    history:[{when:new Date().toISOString(),label:"Atendimento aberto",detail:String(fd.get("complaint")||"Sem relato inicial")}]
   };
   const initialFiles=[...(form.elements.photos?.files||[])];
   const saved=JSON.parse(localStorage.getItem("refrig-orders")||"[]");saved.unshift(item);localStorage.setItem("refrig-orders",JSON.stringify(saved));
@@ -338,11 +339,17 @@ let signatureDrawing=false,hasSignature=false,lastNonDetailView="orders";
 function moneyValue(v){return new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(Number(v||0))}
 function parseMoney(v){return Number(String(v||"").replace(/\./g,"").replace(",",".").replace(/[^0-9.-]/g,""))||0}
 function paymentStatusLabel(v){return ({paid:"Pago",partial:"Parcial",pending:"Pendente"})[v]||"Pendente"}
+function friendlyDateTime(value){
+  if(!value)return "";
+  const d=new Date(value);if(Number.isNaN(d.getTime()))return String(value);
+  const now=new Date(),sameDay=d.toDateString()===now.toDateString();
+  return (sameDay?"Hoje":d.toLocaleDateString("pt-BR"))+" "+d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+}
+function historyStamp(){return new Date().toISOString()}
 function orderWhenLabel(o){
-  if(!o.scheduledAt)return o.when||"";
-  const d=new Date(o.scheduledAt);
-  if(Number.isNaN(d.getTime()))return o.when||"";
-  return d.toLocaleDateString("pt-BR")+" "+d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+  if(o.scheduledAt)return "Agendado: "+friendlyDateTime(o.scheduledAt);
+  if(o.createdAt)return friendlyDateTime(o.createdAt);
+  return o.when||"";
 }
 function formatDateBR(v){
   if(!v)return "";
@@ -363,7 +370,7 @@ function setViewDirect(name){
 }
 function detailHistory(o){
   const rows=o.history||[{label:"Atendimento aberto",detail:o.complaint||"Atendimento registrado.",when:o.when||"—"}];
-  return rows.slice().reverse().map(h=>'<div class="history-row"><i></i><div><small>'+esc(h.when||"")+'</small><b>'+esc(h.label||"Atualização")+'</b><span>'+esc(h.detail||"")+'</span></div></div>').join("");
+  return rows.slice().sort((a,b)=>String(b.when||"").localeCompare(String(a.when||""))).map(h=>'<div class="history-row"><i></i><div><small>'+esc(/^\d{4}-\d{2}-\d{2}T/.test(h.when||"")?friendlyDateTime(h.when):h.when||"")+'</small><b>'+esc(h.label||"Atualização")+'</b><span>'+esc(h.detail||"")+'</span></div></div>').join("");
 }
 function openOrderDetail(id){
   const o=findOrder(id); if(!o)return;
@@ -394,7 +401,7 @@ function openOrderDetail(id){
 }
 function markOrderPaid(o){
   const total=orderTotalValue(o);
-  const history=[...(o.history||[]),{when:"Agora",label:"Pagamento recebido",detail:(o.payment||"Pagamento")+" · "+moneyValue(total)}];
+  const history=[...(o.history||[]),{when:historyStamp(),label:"Pagamento recebido",detail:(o.payment||"Pagamento")+" · "+moneyValue(total)}];
   saveOrderDetail(o.id,{paymentStatus:"paid",amountPaid:total,history});
   render();openOrderDetail(o.id);notify("Pagamento marcado como recebido.");
 }
@@ -439,7 +446,7 @@ function openClientDetail(customerId){
     '<section class="registry-section"><div class="section-title"><div><b>Equipamentos</b><small>Prontuários deste cliente</small></div></div>'+
       (eq.length?eq.map(e=>'<article class="equipment-card clickable-card" data-equipment="'+esc(e.id)+'"><div class="equip-icon">❄</div><div><b>'+esc(e.name)+'</b><small>'+esc(e.room||"Local não informado")+'</small><em>'+esc([e.gas,e.voltage].filter(Boolean).join(" · ")||e.orders.length+" atendimento(s)")+'</em></div><span>›</span></article>').join(""):'<div class="empty-state">Nenhum equipamento cadastrado.</div>')+
     '</section>'+
-    '<section class="registry-section"><div class="section-title"><div><b>Histórico de atendimentos</b><small>Valores, serviços e status</small></div></div><div class="mini-os-list">'+c.orders.slice().reverse().map(orderHistoryCard).join("")+'</div></section>';
+    '<section class="registry-section"><div class="section-title"><div><b>Histórico de atendimentos</b><small>Valores, serviços e status</small></div></div><div class="mini-os-list">'+c.orders.slice().sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||""))).map(orderHistoryCard).join("")+'</div></section>';
   setViewDirect("client-detail");
   target.querySelector(".registry-back").onclick=()=>go("clients");
   target.querySelector("[data-new-client-os]")?.addEventListener("click",()=>openNewOrder(c.id));
@@ -452,11 +459,13 @@ function openEquipmentDetail(equipmentId){
     e.room&&["Ambiente",e.room],e.type&&["Tipo",e.type],e.brand&&["Marca",e.brand],e.model&&["Modelo",e.model],
     e.capacity&&["Capacidade",e.capacity],e.gas&&["Refrigerante",e.gas],e.voltage&&["Tensão",e.voltage],e.serial&&["Nº de série",e.serial]
   ].filter(Boolean);
+  const latest=e.orders.slice().sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")))[0];
+  const warranty=latest?.warrantyUntil&&String(latest.warrantyUntil)>=new Date().toISOString().slice(0,10)?latest.warrantyUntil:"";
   target.innerHTML=
     '<article class="registry-hero equipment-hero"><button class="registry-back" type="button">‹</button><div><small>Equipamento · '+esc(e.customer)+'</small><h1>'+esc(e.name)+'</h1><span>'+(e.nextPreventive?'Próxima preventiva: '+esc(e.nextPreventive):e.orders.length+' atendimento(s) no histórico')+'</span></div></article>'+
-    '<section class="equipment-specs">'+details.map(d=>'<div><small>'+esc(d[0])+'</small><b>'+esc(d[1])+'</b></div>').join("")+'</section>'+(e.notes?'<section class="equipment-note"><small>Observação técnica</small><b>'+esc(e.notes)+'</b></section>':'')+
+    '<section class="equipment-specs">'+details.map(d=>'<div><small>'+esc(d[0])+'</small><b>'+esc(d[1])+'</b></div>').join("")+(latest?'<div><small>Último atendimento</small><b>'+esc(orderWhenLabel(latest))+'</b></div>':'')+(warranty?'<div class="spec-warranty"><small>Garantia ativa</small><b>Até '+esc(formatDateBR(warranty))+'</b></div>':'')+'</section>'+(e.notes?'<section class="equipment-note"><small>Observação técnica</small><b>'+esc(e.notes)+'</b></section>':'')+
     '<div class="equipment-actions"><button class="primary registry-new-os" type="button" data-new-equipment-os>＋ Novo atendimento</button><button class="secondary" type="button" data-edit-equipment>Editar equipamento</button></div>'+
-    '<section class="registry-section"><div class="section-title"><div><b>Prontuário técnico</b><small>Todo o histórico deste equipamento</small></div><strong>'+moneyValue(e.total)+'</strong></div><div class="mini-os-list">'+e.orders.slice().reverse().map(orderHistoryCard).join("")+'</div></section>';
+    '<section class="registry-section"><div class="section-title"><div><b>Prontuário técnico</b><small>Todo o histórico deste equipamento</small></div><strong>'+moneyValue(e.total)+'</strong></div><div class="mini-os-list">'+e.orders.slice().sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||""))).map(orderHistoryCard).join("")+'</div></section>';
   setViewDirect("equipment-detail");
   target.querySelector(".registry-back").onclick=()=>go("equipment");
   target.querySelector("[data-new-equipment-os]")?.addEventListener("click",()=>openNewOrder(e.customerId,e.id));
@@ -513,7 +522,7 @@ finishForm?.addEventListener("submit",async e=>{
   const paymentStatus=String(fd.get("paymentStatus")||"paid"),warrantyDays=Number(fd.get("warrantyDays")||0);
   const patch={diagnosis:String(fd.get("diagnosis")||""),service:String(fd.get("service")||""),materials:String(fd.get("materials")||""),laborValue:labor,materialValue:materialsValue,payment:String(fd.get("payment")||"Pix"),paymentStatus,amountPaid:parseMoney(fd.get("amountPaid")),nextPreventive:String(fd.get("nextPreventive")||""),warrantyDays,warrantyUntil:calcWarrantyUntil(warrantyDays),closingNotes:String(fd.get("closingNotes")||""),finishPhotos:(document.getElementById("finishPhotos").files||[]).length,signed:Boolean(document.getElementById("signedConsent").checked&&hasSignature),status:"Finalizado",tag:"done",value:moneyValue(total)};
   if(paymentStatus==="paid"&&!patch.amountPaid)patch.amountPaid=total;
-  patch.history=[...(o.history||[]),{when:"Agora",label:"Atendimento finalizado",detail:(patch.service||"Serviço concluído")+" · "+patch.value+" · "+paymentStatusLabel(patch.paymentStatus)+(patch.signed?" · assinado":"")}];
+  patch.history=[...(o.history||[]),{when:historyStamp(),label:"Atendimento finalizado",detail:(patch.service||"Serviço concluído")+" · "+patch.value+" · "+paymentStatusLabel(patch.paymentStatus)+(patch.signed?" · assinado":"")}];
   const finishFiles=[...(document.getElementById("finishPhotos").files||[])];
   try{
     await saveOrderFiles(id,finishFiles,"finish");
