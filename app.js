@@ -1,6 +1,6 @@
 const demoOrders=[
 {id:123,customer:"Maria Aparecida",equipment:"LG Dual Inverter 12.000 BTU",status:"Em atendimento",tag:"service",complaint:"Não está gelando corretamente.",when:"Hoje 18:30",value:"R$ 250,00"},
-{id:122,customer:"Mercado Avenida",equipment:"Câmara fria principal",status:"Aguardando aprovação",tag:"wait",complaint:"Temperatura oscilando durante a madrugada.",when:"Hoje 16:10",value:"R$ 680,00"},
+{id:122,customer:"Mercado Avenida",equipment:"Câmara fria principal",status:"Aguardando retorno",tag:"wait",complaint:"Temperatura oscilando durante a madrugada.",when:"Hoje 16:10",value:"R$ 680,00"},
 {id:121,customer:"Paulo Roberto",equipment:"Freezer horizontal",status:"Aberta",tag:"wait",complaint:"Liga, mas não atinge a temperatura.",when:"Ontem 14:20",value:"A orçar"}
 ];
 
@@ -159,13 +159,28 @@ function renderEquipment(filter=""){
   ).join(""):'<div class="empty-state">Nenhum equipamento encontrado.</div>';
 }
 
-function card(o){return '<article class="order-card" data-order="'+esc(o.id)+'"><div class="order-top"><div><small>OS #'+esc(o.id)+'</small><b>'+esc(o.customer)+'</b></div><span class="tag '+(o.tag==="wait"?"wait":o.tag==="done"?"done":"")+'">'+esc(o.status)+'</span></div><p><b>'+esc(o.equipment)+'</b><br>'+esc(o.complaint)+'</p><div class="order-footer"><span>'+esc(o.when)+'</span><b>'+esc(o.value)+'</b></div></article>'}
+function card(o){
+  const pay=o.tag==="done"?'<span class="pay-mini '+esc(o.paymentStatus||"pending")+'">'+esc(paymentStatusLabel(o.paymentStatus))+'</span>':"";
+  return '<article class="order-card" data-order="'+esc(o.id)+'"><div class="order-top"><div><small>Atendimento #'+esc(o.id)+'</small><b>'+esc(o.customer)+'</b></div><span class="tag '+(o.tag==="wait"?"wait":o.tag==="done"?"done":"")+'">'+esc(o.status)+'</span></div><p><b>'+esc(o.equipment)+'</b><br>'+esc(o.complaint)+'</p><div class="order-footer"><span>'+esc(o.when)+'</span><div class="order-money">'+pay+'<b>'+esc(o.value)+'</b></div></div></article>'
+}
 function refreshCustomerOptions(){const d=document.getElementById("customerOptions");if(d)d.innerHTML=customerRows().map(c=>'<option value="'+esc(c.name)+'"></option>').join("")}
+function renderPreventives(list){
+  const target=document.getElementById("preventiveList"); if(!target)return;
+  const rows=list.filter(o=>o.nextPreventive).sort((a,b)=>String(a.nextPreventive).localeCompare(String(b.nextPreventive))).slice(0,5);
+  target.innerHTML=rows.length?rows.map(o=>{
+    const [y,m,d]=String(o.nextPreventive).slice(0,10).split("-");
+    const month=({01:"JAN",02:"FEV",03:"MAR",04:"ABR",05:"MAI",06:"JUN",07:"JUL",08:"AGO",09:"SET",10:"OUT",11:"NOV",12:"DEZ"})[m]||m;
+    return '<div data-order="'+esc(o.id)+'"><span class="date">'+esc(d+" "+month)+'</span><p><b>'+esc(o.customer)+'</b><small>'+esc(o.equipment)+' · retorno recomendado</small></p><span class="preventive-arrow">›</span></div>';
+  }).join(""):'<div class="preventive-empty">Nenhuma preventiva agendada ainda.</div>';
+}
 function render(){
  const list=orders();
- document.getElementById("homeOrders").innerHTML=list.slice(0,3).map(card).join("");
+ document.getElementById("homeOrders").innerHTML=list.slice(0,4).map(card).join("");
  document.getElementById("orderList").innerHTML=list.map(card).join("");
  document.getElementById("openCount").textContent=list.filter(o=>o.tag!=="done").length;
+ document.getElementById("pendingPaymentCount").textContent=list.filter(o=>o.tag==="done"&&(o.paymentStatus||"pending")!=="paid").length;
+ document.getElementById("preventiveCount").textContent=list.filter(o=>o.nextPreventive).length;
+ renderPreventives(list);
  renderClients(document.getElementById("clientSearch")?.value||"");
  renderEquipment(document.getElementById("equipmentSearch")?.value||"");
  refreshCustomerOptions();
@@ -250,7 +265,7 @@ form.addEventListener("submit",async e=>{
   const initialFiles=[...(form.elements.photos?.files||[])];
   const saved=JSON.parse(localStorage.getItem("refrig-orders")||"[]");saved.unshift(item);localStorage.setItem("refrig-orders",JSON.stringify(saved));
   try{await saveOrderFiles(item.id,initialFiles,"initial")}catch{}
-  render();dialog.close();go("orders");notify("OS criada e registrada no histórico.");
+  render();dialog.close();go("orders");notify("Atendimento criado e registrado no histórico.");
 });
 const q=document.getElementById("orderSearch");q?.addEventListener("input",()=>{const term=q.value.toLowerCase();document.getElementById("orderList").innerHTML=orders().filter(o=>(o.customer+" "+o.equipment+" "+o.id).toLowerCase().includes(term)).map(card).join("")});
 let deferredPrompt;window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;document.getElementById("installBtn").hidden=false});document.getElementById("installBtn")?.addEventListener("click",async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null});
@@ -268,6 +283,17 @@ let signatureDrawing=false,hasSignature=false,lastNonDetailView="orders";
 
 function moneyValue(v){return new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(Number(v||0))}
 function parseMoney(v){return Number(String(v||"").replace(/\./g,"").replace(",",".").replace(/[^0-9.-]/g,""))||0}
+function paymentStatusLabel(v){return ({paid:"Pago",partial:"Parcial",pending:"Pendente"})[v]||"Pendente"}
+function formatDateBR(v){
+  if(!v)return "";
+  const [y,m,d]=String(v).slice(0,10).split("-");
+  return y&&m&&d?d+"/"+m+"/"+y:String(v);
+}
+function calcWarrantyUntil(days){
+  const n=Number(days||0); if(!n)return "";
+  const d=new Date(); d.setDate(d.getDate()+n);
+  return d.toISOString().slice(0,10);
+}
 function findOrder(id){return orders().find(o=>String(o.id)===String(id))}
 function setViewDirect(name){
   views.forEach(v=>v.classList.toggle("active",v.dataset.view===name));
@@ -276,7 +302,7 @@ function setViewDirect(name){
   window.scrollTo({top:0,behavior:"smooth"});
 }
 function detailHistory(o){
-  const rows=o.history||[{label:"OS aberta",detail:o.complaint||"Atendimento registrado.",when:o.when||"—"}];
+  const rows=o.history||[{label:"Atendimento aberto",detail:o.complaint||"Atendimento registrado.",when:o.when||"—"}];
   return rows.slice().reverse().map(h=>'<div class="history-row"><i></i><div><small>'+esc(h.when||"")+'</small><b>'+esc(h.label||"Atualização")+'</b><span>'+esc(h.detail||"")+'</span></div></div>').join("");
 }
 function openOrderDetail(id){
@@ -285,12 +311,12 @@ function openOrderDetail(id){
   const total=Number(o.laborValue||0)+Number(o.materialValue||0);
   const photos=Number(o.initialPhotos||0)+Number(o.finishPhotos||0);
   detailContent.innerHTML=
-    '<article class="detail-hero"><button class="detail-back" type="button">‹</button><div><small>OS #'+esc(o.id)+'</small><h1>'+esc(o.customer)+'</h1><span>'+esc(o.equipment)+'</span></div><span class="tag '+(o.tag==="done"?"done":o.tag==="wait"?"wait":"")+'">'+esc(o.status)+'</span></article>'+
+    '<article class="detail-hero"><button class="detail-back" type="button">‹</button><div><small>Atendimento #'+esc(o.id)+'</small><h1>'+esc(o.customer)+'</h1><span>'+esc(o.equipment)+'</span></div><span class="tag '+(o.tag==="done"?"done":o.tag==="wait"?"wait":"")+'">'+esc(o.status)+'</span></article>'+
     '<div class="detail-grid">'+
       '<section class="info-card"><span>Problema relatado</span><b>'+esc(o.complaint||"Sem relato")+'</b></section>'+
       '<section class="info-card"><span>Diagnóstico</span><b>'+esc(o.diagnosis||"Ainda não informado")+'</b></section>'+
       '<section class="info-card wide"><span>Serviço executado</span><b>'+esc(o.service||"Ainda não informado")+'</b>'+(o.materials?'<p>Materiais: '+esc(o.materials)+'</p>':'')+'</section>'+
-      '<section class="info-card wide"><span>Registro do atendimento</span><div class="value-grid"><div><small>Serviço</small><b>'+moneyValue(o.laborValue)+'</b></div><div><small>Materiais</small><b>'+moneyValue(o.materialValue)+'</b></div><div><small>Total</small><b>'+moneyValue(total)+'</b></div></div><div class="detail-pills"><span>📷 '+photos+' foto(s)</span><span>'+(o.signed?"✍ Assinado":"Assinatura pendente")+'</span><span>'+esc(o.payment||"Pendente")+'</span></div></section>'+
+      '<section class="info-card wide"><span>Registro do atendimento</span><div class="value-grid"><div><small>Serviço</small><b>'+moneyValue(o.laborValue)+'</b></div><div><small>Materiais</small><b>'+moneyValue(o.materialValue)+'</b></div><div><small>Total</small><b>'+moneyValue(total)+'</b></div></div><div class="detail-pills"><span>📷 '+photos+' foto(s)</span><span>'+(o.signed?"✍ Assinado":"Assinatura pendente")+'</span><span>💳 '+esc(o.payment||"Não informado")+'</span><span class="payment-pill '+esc(o.paymentStatus||"pending")+'">'+esc(paymentStatusLabel(o.paymentStatus))+'</span>'+(o.warrantyUntil?'<span>🛡 Garantia até '+esc(formatDateBR(o.warrantyUntil))+'</span>':'')+(o.nextPreventive?'<span>↻ Retorno '+esc(formatDateBR(o.nextPreventive))+'</span>':'')+'</div>'+(o.closingNotes?'<p>Observação: '+esc(o.closingNotes)+'</p>':'')+'</section>'+
       '<section class="info-card wide"><span>Fotos e assinatura</span><div class="media-gallery" id="orderMediaGallery"><div class="media-loading">Carregando evidências…</div></div></section>'+
       '<section class="info-card wide"><span>Histórico</span><div class="history-list">'+detailHistory(o)+'</div></section>'+
     '</div>'+
@@ -298,12 +324,12 @@ function openOrderDetail(id){
   setViewDirect("detail");
   detailContent.querySelector(".detail-back").onclick=()=>setViewDirect(lastNonDetailView||"orders");
   detailContent.querySelector("[data-finish]")?.addEventListener("click",()=>openFinish(o));
-  detailContent.querySelector("[data-reopen]")?.addEventListener("click",()=>{saveOrderDetail(o.id,{status:"Em atendimento",tag:"service"});render();openOrderDetail(o.id);notify("OS reaberta.")});
+  detailContent.querySelector("[data-reopen]")?.addEventListener("click",()=>{saveOrderDetail(o.id,{status:"Em atendimento",tag:"service"});render();openOrderDetail(o.id);notify("Atendimento reaberto.")});
   renderOrderMedia(o.id);
 }
 function orderHistoryCard(o){
   const total=Number(o.laborValue||0)+Number(o.materialValue||0);
-  return '<article class="mini-os" data-order="'+esc(o.id)+'"><div><small>OS #'+esc(o.id)+' · '+esc(o.when||"")+'</small><b>'+esc(o.service||o.complaint||"Atendimento")+'</b><span>'+esc(o.equipment||"Equipamento")+'</span></div><div><span class="tag '+(o.tag==="done"?"done":o.tag==="wait"?"wait":"")+'">'+esc(o.status||"Aberta")+'</span><strong>'+(total?moneyValue(total):esc(o.value||"A orçar"))+'</strong></div></article>';
+  return '<article class="mini-os" data-order="'+esc(o.id)+'"><div><small>Atendimento #'+esc(o.id)+' · '+esc(o.when||"")+'</small><b>'+esc(o.service||o.complaint||"Atendimento")+'</b><span>'+esc(o.equipment||"Equipamento")+'</span></div><div><span class="tag '+(o.tag==="done"?"done":o.tag==="wait"?"wait":"")+'">'+esc(o.status||"Aberta")+'</span><strong>'+(total?moneyValue(total):esc(o.value||"A orçar"))+'</strong></div></article>';
 }
 function openClientDetail(customerId){
   const c=customerRows().find(x=>x.id===customerId); if(!c)return;
@@ -312,7 +338,7 @@ function openClientDetail(customerId){
   target.innerHTML=
     '<article class="registry-hero"><button class="registry-back" type="button">‹</button><div><small>Cliente</small><h1>'+esc(c.name)+'</h1><span>'+esc(c.phone||"Sem telefone cadastrado")+'</span></div></article>'+
     '<div class="registry-kpis"><div><small>Equipamentos</small><b>'+eq.length+'</b></div><div><small>Atendimentos</small><b>'+c.orders.length+'</b></div><div><small>Histórico</small><b>'+moneyValue(c.total)+'</b></div></div>'+
-    '<button class="primary full registry-new-os" type="button" data-new-client-os>＋ Nova OS para este cliente</button>'+
+    '<button class="primary full registry-new-os" type="button" data-new-client-os>＋ Novo atendimento para este cliente</button>'+
     '<section class="registry-section"><div class="section-title"><div><b>Equipamentos</b><small>Prontuários deste cliente</small></div></div>'+
       (eq.length?eq.map(e=>'<article class="equipment-card clickable-card" data-equipment="'+esc(e.id)+'"><div class="equip-icon">❄</div><div><b>'+esc(e.name)+'</b><small>'+esc(e.room||"Local não informado")+'</small><em>'+esc([e.gas,e.voltage].filter(Boolean).join(" · ")||e.orders.length+" atendimento(s)")+'</em></div><span>›</span></article>').join(""):'<div class="empty-state">Nenhum equipamento cadastrado.</div>')+
     '</section>'+
@@ -331,14 +357,14 @@ function openEquipmentDetail(equipmentId){
   target.innerHTML=
     '<article class="registry-hero equipment-hero"><button class="registry-back" type="button">‹</button><div><small>Equipamento · '+esc(e.customer)+'</small><h1>'+esc(e.name)+'</h1><span>'+(e.nextPreventive?'Próxima preventiva: '+esc(e.nextPreventive):e.orders.length+' atendimento(s) no histórico')+'</span></div></article>'+
     '<section class="equipment-specs">'+details.map(d=>'<div><small>'+esc(d[0])+'</small><b>'+esc(d[1])+'</b></div>').join("")+'</section>'+
-    '<button class="primary full registry-new-os" type="button" data-new-equipment-os>＋ Nova OS neste equipamento</button>'+
+    '<button class="primary full registry-new-os" type="button" data-new-equipment-os>＋ Novo atendimento neste equipamento</button>'+
     '<section class="registry-section"><div class="section-title"><div><b>Prontuário técnico</b><small>Todo o histórico deste equipamento</small></div><strong>'+moneyValue(e.total)+'</strong></div><div class="mini-os-list">'+e.orders.slice().reverse().map(orderHistoryCard).join("")+'</div></section>';
   setViewDirect("equipment-detail");
   target.querySelector(".registry-back").onclick=()=>go("equipment");
   target.querySelector("[data-new-equipment-os]")?.addEventListener("click",()=>openNewOrder(e.customerId,e.id));
 }
 document.addEventListener("click",e=>{
-  const o=e.target.closest(".order-card[data-order],.mini-os[data-order]"); if(o){openOrderDetail(o.dataset.order);return}
+  const o=e.target.closest(".order-card[data-order],.mini-os[data-order],.preventive [data-order]"); if(o){openOrderDetail(o.dataset.order);return}
   const c=e.target.closest(".client-card[data-client]"); if(c){openClientDetail(c.dataset.client);return}
   const eq=e.target.closest(".equipment-card[data-equipment]"); if(eq){openEquipmentDetail(eq.dataset.equipment);return}
 });
@@ -374,14 +400,21 @@ document.getElementById("cancelFinish")?.addEventListener("click",()=>finishDial
 function openFinish(o){
   finishForm.reset();document.getElementById("finishOrderId").value=o.id;
   finishForm.elements.diagnosis.value=o.diagnosis||"";finishForm.elements.service.value=o.service||"";finishForm.elements.materials.value=o.materials||"";
-  finishForm.elements.laborValue.value=o.laborValue||"";finishForm.elements.materialValue.value=o.materialValue||"";finishForm.elements.payment.value=o.payment||"Pendente";
+  finishForm.elements.laborValue.value=o.laborValue||"";finishForm.elements.materialValue.value=o.materialValue||"";finishForm.elements.payment.value=o.payment||"Pix";
+  finishForm.elements.paymentStatus.value=o.paymentStatus||"paid";
+  finishForm.elements.amountPaid.value=o.amountPaid||"";
+  finishForm.elements.nextPreventive.value=o.nextPreventive||"";
+  finishForm.elements.warrantyDays.value=o.warrantyDays||"0";
+  finishForm.elements.closingNotes.value=o.closingNotes||"";
   hasSignature=false;finishDialog.showModal();requestAnimationFrame(resizeSignature);
 }
 finishForm?.addEventListener("submit",async e=>{
   e.preventDefault();const fd=new FormData(finishForm),id=document.getElementById("finishOrderId").value,o=findOrder(id);if(!o)return;
   const labor=parseMoney(fd.get("laborValue")),materialsValue=parseMoney(fd.get("materialValue")),total=labor+materialsValue;
-  const patch={diagnosis:String(fd.get("diagnosis")||""),service:String(fd.get("service")||""),materials:String(fd.get("materials")||""),laborValue:labor,materialValue:materialsValue,payment:String(fd.get("payment")||"Pendente"),nextPreventive:String(fd.get("nextPreventive")||""),finishPhotos:(document.getElementById("finishPhotos").files||[]).length,signed:Boolean(document.getElementById("signedConsent").checked&&hasSignature),status:"Finalizada",tag:"done",value:moneyValue(total)};
-  patch.history=[...(o.history||[]),{when:"Agora",label:"Atendimento finalizado",detail:(patch.service||"Serviço concluído")+" · "+patch.value+" · "+patch.payment+(patch.signed?" · assinado":"")}];
+  const paymentStatus=String(fd.get("paymentStatus")||"paid"),warrantyDays=Number(fd.get("warrantyDays")||0);
+  const patch={diagnosis:String(fd.get("diagnosis")||""),service:String(fd.get("service")||""),materials:String(fd.get("materials")||""),laborValue:labor,materialValue:materialsValue,payment:String(fd.get("payment")||"Pix"),paymentStatus,amountPaid:parseMoney(fd.get("amountPaid")),nextPreventive:String(fd.get("nextPreventive")||""),warrantyDays,warrantyUntil:calcWarrantyUntil(warrantyDays),closingNotes:String(fd.get("closingNotes")||""),finishPhotos:(document.getElementById("finishPhotos").files||[]).length,signed:Boolean(document.getElementById("signedConsent").checked&&hasSignature),status:"Finalizado",tag:"done",value:moneyValue(total)};
+  if(paymentStatus==="paid"&&!patch.amountPaid)patch.amountPaid=total;
+  patch.history=[...(o.history||[]),{when:"Agora",label:"Atendimento finalizado",detail:(patch.service||"Serviço concluído")+" · "+patch.value+" · "+paymentStatusLabel(patch.paymentStatus)+(patch.signed?" · assinado":"")}];
   const finishFiles=[...(document.getElementById("finishPhotos").files||[])];
   try{
     await saveOrderFiles(id,finishFiles,"finish");
