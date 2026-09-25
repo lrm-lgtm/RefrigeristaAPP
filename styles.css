@@ -156,3 +156,20 @@
 
 /* v8 — identidade canônica local: customerId/equipmentId */
 .registry-hero small{letter-spacing:.02em}
+
+
+/* v10 — app pessoal: histórico e controle do refrigerista */
+.order-money{display:flex;align-items:center;gap:7px}
+.pay-mini,.payment-pill{display:inline-flex;align-items:center;border-radius:999px;font-size:10px;font-weight:800;padding:4px 7px}
+.pay-mini.paid,.payment-pill.paid{background:#eaf5f1;color:#15835e}
+.pay-mini.pending,.payment-pill.pending{background:#fff2df;color:#a9650c}
+.pay-mini.partial,.payment-pill.partial{background:#eef1fb;color:#5366a8}
+.preventive>div[data-order]{cursor:pointer}
+.preventive-arrow{margin-left:auto;color:#9ca8ae;font-size:24px}
+.preventive-empty{display:block!important;padding:18px!important;text-align:center;color:var(--muted);font-size:12px}
+.finish-dialog input[name="closingNotes"]{min-height:46px}
+@media(max-width:520px){
+  .stats article{padding:13px 10px}
+  .stats strong{font-size:22px}
+  .stats span{font-size:11px}
+}
