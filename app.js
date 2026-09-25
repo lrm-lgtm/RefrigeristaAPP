@@ -12,6 +12,7 @@ const form=document.getElementById("osForm");
 const steps=[...document.querySelectorAll(".step")];
 const stepDots=[...document.querySelectorAll(".steps i")];
 let currentView="home";
+let orderFilter="all";
 
 const MEDIA_DB_NAME="refrigerista-media-v1";
 const MEDIA_STORE="media";
@@ -103,6 +104,10 @@ function equipmentKeyOf(o){
 function equipmentIdOf(o){
   return o.equipmentId||stableId("eqp",[customerIdOf(o),o.serial||"",o.equipment||"",o.room||""].join("|"));
 }
+function orderTotalValue(o){
+  const detailed=Number(o.laborValue||0)+Number(o.materialValue||0);
+  return detailed||parseMoney(o.value);
+}
 function customerRows(){
   const map=new Map();
   for(const o of orders()){
@@ -112,7 +117,7 @@ function customerRows(){
     row.phone=row.phone||o.phone||"";
     row.orders.push({...o,customerId:id,equipmentId:equipmentIdOf(o)});
     row.equipmentIds.add(equipmentIdOf(o));
-    row.total+=Number(o.laborValue||0)+Number(o.materialValue||0);
+    row.total+=orderTotalValue(o);
   }
   return [...map.values()].sort((a,b)=>a.name.localeCompare(b.name,"pt-BR"));
 }
@@ -130,12 +135,17 @@ function equipmentRows(){
     const row=map.get(id);
     for(const f of ["type","brand","model","capacity","voltage","gas","room","serial"]){ if(!row[f]&&o[f]) row[f]=o[f]; }
     row.orders.push({...o,customerId,equipmentId:id});
-    row.total+=Number(o.laborValue||0)+Number(o.materialValue||0);
+    row.total+=orderTotalValue(o);
     if(o.nextPreventive) row.nextPreventive=o.nextPreventive;
   }
   return [...map.values()].sort((a,b)=>a.customer.localeCompare(b.customer,"pt-BR")||a.name.localeCompare(b.name,"pt-BR"));
 }
 function initials(name){return String(name||"?").trim().split(/\s+/).slice(0,2).map(x=>x[0]||"").join("").toUpperCase()}
+function whatsappHref(phone){
+  let d=String(phone||"").replace(/\D/g,"");
+  if((d.length===10||d.length===11)&&!d.startsWith("55"))d="55"+d;
+  return d?"https://wa.me/"+d:"";
+}
 function renderClients(filter=""){
   const target=document.getElementById("clientList"); if(!target)return;
   const q=String(filter||"").toLowerCase().trim();
@@ -164,6 +174,18 @@ function card(o){
   return '<article class="order-card" data-order="'+esc(o.id)+'"><div class="order-top"><div><small>Atendimento #'+esc(o.id)+'</small><b>'+esc(o.customer)+'</b></div><span class="tag '+(o.tag==="wait"?"wait":o.tag==="done"?"done":"")+'">'+esc(o.status)+'</span></div><p><b>'+esc(o.equipment)+'</b><br>'+esc(o.complaint)+'</p><div class="order-footer"><span>'+esc(o.when)+'</span><div class="order-money">'+pay+'<b>'+esc(o.value)+'</b></div></div></article>'
 }
 function refreshCustomerOptions(){const d=document.getElementById("customerOptions");if(d)d.innerHTML=customerRows().map(c=>'<option value="'+esc(c.name)+'"></option>').join("")}
+function orderMatchesFilter(o,filter){
+  if(filter==="open")return o.tag!=="done";
+  if(filter==="receivable")return o.tag==="done"&&(o.paymentStatus||"pending")!=="paid";
+  if(filter==="done")return o.tag==="done";
+  return true;
+}
+function renderOrderList(){
+  const q=String(document.getElementById("orderSearch")?.value||"").toLowerCase().trim();
+  const list=orders().filter(o=>orderMatchesFilter(o,orderFilter)).filter(o=>!q||(o.customer+" "+o.equipment+" "+o.id+" "+(o.complaint||"")).toLowerCase().includes(q));
+  const target=document.getElementById("orderList"); if(target)target.innerHTML=list.length?list.map(card).join(""):'<div class="empty-state">Nenhum atendimento neste filtro.</div>';
+  document.querySelectorAll("[data-order-filter]").forEach(b=>b.classList.toggle("active",b.dataset.orderFilter===orderFilter));
+}
 function renderPreventives(list){
   const target=document.getElementById("preventiveList"); if(!target)return;
   const rows=list.filter(o=>o.nextPreventive).sort((a,b)=>String(a.nextPreventive).localeCompare(String(b.nextPreventive))).slice(0,5);
@@ -176,7 +198,7 @@ function renderPreventives(list){
 function render(){
  const list=orders();
  document.getElementById("homeOrders").innerHTML=list.slice(0,4).map(card).join("");
- document.getElementById("orderList").innerHTML=list.map(card).join("");
+ renderOrderList();
  document.getElementById("openCount").textContent=list.filter(o=>o.tag!=="done").length;
  document.getElementById("pendingPaymentCount").textContent=list.filter(o=>o.tag==="done"&&(o.paymentStatus||"pending")!=="paid").length;
  document.getElementById("preventiveCount").textContent=list.filter(o=>o.nextPreventive).length;
@@ -267,7 +289,17 @@ form.addEventListener("submit",async e=>{
   try{await saveOrderFiles(item.id,initialFiles,"initial")}catch{}
   render();dialog.close();go("orders");notify("Atendimento criado e registrado no histórico.");
 });
-const q=document.getElementById("orderSearch");q?.addEventListener("input",()=>{const term=q.value.toLowerCase();document.getElementById("orderList").innerHTML=orders().filter(o=>(o.customer+" "+o.equipment+" "+o.id).toLowerCase().includes(term)).map(card).join("")});
+const q=document.getElementById("orderSearch");q?.addEventListener("input",renderOrderList);
+document.getElementById("orderFilters")?.addEventListener("click",e=>{
+  const b=e.target.closest("[data-order-filter]");if(!b)return;
+  orderFilter=b.dataset.orderFilter;renderOrderList();
+});
+document.querySelectorAll("[data-jump-filter]").forEach(el=>el.addEventListener("click",()=>{
+  orderFilter=el.dataset.jumpFilter;go("orders");renderOrderList();
+}));
+document.querySelector(".search-btn")?.addEventListener("click",()=>{
+  go("clients");setTimeout(()=>document.getElementById("clientSearch")?.focus(),120);
+});
 let deferredPrompt;window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;document.getElementById("installBtn").hidden=false});document.getElementById("installBtn")?.addEventListener("click",async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null});
 if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(()=>{});
 
@@ -328,7 +360,7 @@ function openOrderDetail(id){
   renderOrderMedia(o.id);
 }
 function orderHistoryCard(o){
-  const total=Number(o.laborValue||0)+Number(o.materialValue||0);
+  const total=orderTotalValue(o);
   return '<article class="mini-os" data-order="'+esc(o.id)+'"><div><small>Atendimento #'+esc(o.id)+' · '+esc(o.when||"")+'</small><b>'+esc(o.service||o.complaint||"Atendimento")+'</b><span>'+esc(o.equipment||"Equipamento")+'</span></div><div><span class="tag '+(o.tag==="done"?"done":o.tag==="wait"?"wait":"")+'">'+esc(o.status||"Aberta")+'</span><strong>'+(total?moneyValue(total):esc(o.value||"A orçar"))+'</strong></div></article>';
 }
 function openClientDetail(customerId){
@@ -338,7 +370,7 @@ function openClientDetail(customerId){
   target.innerHTML=
     '<article class="registry-hero"><button class="registry-back" type="button">‹</button><div><small>Cliente</small><h1>'+esc(c.name)+'</h1><span>'+esc(c.phone||"Sem telefone cadastrado")+'</span></div></article>'+
     '<div class="registry-kpis"><div><small>Equipamentos</small><b>'+eq.length+'</b></div><div><small>Atendimentos</small><b>'+c.orders.length+'</b></div><div><small>Histórico</small><b>'+moneyValue(c.total)+'</b></div></div>'+
-    '<button class="primary full registry-new-os" type="button" data-new-client-os>＋ Novo atendimento para este cliente</button>'+
+    '<div class="client-actions"><button class="primary registry-new-os" type="button" data-new-client-os>＋ Novo atendimento</button>'+(c.phone?'<a class="secondary whatsapp-action" href="'+esc(whatsappHref(c.phone))+'" target="_blank" rel="noopener">WhatsApp</a>':'')+'</div>'+
     '<section class="registry-section"><div class="section-title"><div><b>Equipamentos</b><small>Prontuários deste cliente</small></div></div>'+
       (eq.length?eq.map(e=>'<article class="equipment-card clickable-card" data-equipment="'+esc(e.id)+'"><div class="equip-icon">❄</div><div><b>'+esc(e.name)+'</b><small>'+esc(e.room||"Local não informado")+'</small><em>'+esc([e.gas,e.voltage].filter(Boolean).join(" · ")||e.orders.length+" atendimento(s)")+'</em></div><span>›</span></article>').join(""):'<div class="empty-state">Nenhum equipamento cadastrado.</div>')+
     '</section>'+
