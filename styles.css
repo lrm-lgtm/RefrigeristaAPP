@@ -511,3 +511,92 @@
   .stats strong{height:34px;line-height:34px;font-size:27px}
   .stats span{min-height:30px;font-size:11.5px}
 }
+
+
+/* v23 — correção óptica dos KPIs e refinamento da home */
+.stats{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  align-items:stretch;
+}
+.stats article{
+  min-height:106px;
+  padding:15px 16px 14px;
+  display:grid;
+  grid-template-rows:42px 32px;
+  align-content:center;
+  justify-items:start;
+  overflow:hidden;
+}
+.stats strong{
+  display:flex;
+  align-items:flex-end;
+  justify-content:flex-start;
+  width:100%;
+  height:42px;
+  margin:0;
+  padding:0;
+  font-size:29px;
+  font-weight:800;
+  line-height:1;
+  letter-spacing:-.025em;
+  font-variant-numeric:tabular-nums lining-nums;
+  font-feature-settings:"tnum" 1,"lnum" 1;
+}
+.stats span{
+  display:flex;
+  align-items:flex-start;
+  width:100%;
+  min-height:32px;
+  margin:0;
+  padding-top:4px;
+  line-height:1.2;
+}
+
+/* botão de visita mais compacto e visualmente equilibrado */
+.quick-start .new-visit{
+  min-height:114px;
+  padding-top:16px;
+  padding-bottom:16px;
+}
+.quick-start .new-visit>span{
+  width:42px;height:42px;
+}
+
+/* busca menos solta e mais proporcional ao título */
+.hello .search-btn{
+  width:40px;height:40px;
+  border-radius:12px;
+  margin-top:2px;
+}
+.hello .search-btn svg{width:19px;height:19px}
+
+/* cabeçalho: reduz peso visual das ações à direita */
+.top-action{
+  width:39px;height:39px;
+  border-radius:12px;
+  box-shadow:none;
+  background:#f8fafb;
+}
+.install-action{background:#eef6f9}
+.top-action svg{width:19px;height:19px}
+
+@media(max-width:420px){
+  .stats{gap:8px}
+  .stats article{
+    min-height:102px;
+    padding:14px 13px 13px;
+    grid-template-rows:40px 32px;
+  }
+  .stats strong{
+    height:40px;
+    font-size:28px;
+  }
+  .stats span{
+    min-height:32px;
+    padding-top:4px;
+    font-size:11.5px;
+  }
+  .quick-start .new-visit{min-height:110px}
+}
