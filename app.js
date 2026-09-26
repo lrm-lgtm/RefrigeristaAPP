@@ -425,7 +425,7 @@ function openOrderDetail(id){
       '<section class="info-card wide"><span>Histórico</span><div class="history-list">'+detailHistory(o)+'</div></section>'+
     '</div>'+
     (o.tag==="done"
-      ?'<div class="detail-actions">'+((o.paymentStatus||"pending")!=="paid"?'<button class="primary" data-mark-paid>Marcar como pago</button>':'')+'<button class="secondary" data-share>Compartilhar resumo</button><button class="secondary" data-print>Comprovante</button><button class="secondary" data-reopen>Reabrir</button></div>'
+      ?'<div class="detail-actions">'+((o.paymentStatus||"pending")!=="paid"?'<button class="primary" data-mark-paid>Marcar como pago</button>':'')+'<button class="secondary" data-share>Enviar ao cliente</button><button class="secondary" data-print>Comprovante</button><button class="secondary" data-reopen>Reabrir</button></div>'
       :'<button class="primary full detail-main-action" data-finish>Finalizar atendimento</button>');
   setViewDirect("detail");
   detailContent.querySelector(".detail-back").onclick=()=>setViewDirect(lastNonDetailView||"orders");
@@ -444,29 +444,111 @@ function markOrderPaid(o){
 }
 function orderSummaryText(o){
   const total=orderTotalValue(o);
+  const payment=[o.payment,paymentStatusLabel(o.paymentStatus)].filter(Boolean).join(" · ");
   return [
-    "Atendimento #"+o.id,
+    "*LUIZ MIGUEL — AR CONDICIONADO E REFRIGERAÇÃO*",
+    "",
+    "*Atendimento #"+o.id+"*",
     "Cliente: "+(o.customer||""),
-    "Equipamento: "+(o.equipment||""),
-    o.diagnosis?"Diagnóstico: "+o.diagnosis:"",
+    o.equipment?"Equipamento: "+o.equipment:"",
     o.service?"Serviço: "+o.service:"",
-    "Total: "+moneyValue(total),
-    "Pagamento: "+paymentStatusLabel(o.paymentStatus)
-  ].filter(Boolean).join("\n");
+    o.materials?"Materiais/peças: "+o.materials:"",
+    o.diagnosis?"Diagnóstico: "+o.diagnosis:"",
+    "",
+    "*Valor total: "+moneyValue(total)+"*",
+    payment?"Pagamento: "+payment:"",
+    o.warrantyUntil?"Garantia até: "+formatDateBR(o.warrantyUntil):"",
+    o.nextPreventive?"Próxima preventiva: "+formatDateBR(o.nextPreventive):"",
+    o.closingNotes?"Observação: "+o.closingNotes:"",
+    "",
+    "Luiz Miguel Ar Condicionado e Refrigeração",
+    "19 99232-3703"
+  ].filter(v=>v!==""||true).join("\n").replace(/\n{3,}/g,"\n\n").trim();
 }
-async function shareOrder(o){
+function summaryHtml(text){
+  return esc(text)
+    .replace(/\*([^*]+)\*/g,"<strong>$1</strong>")
+    .replace(/\n/g,"<br>");
+}
+function whatsappShareHref(o,text){
+  let phone=String(o.phone||"").replace(/\D/g,"");
+  if((phone.length===10||phone.length===11)&&!phone.startsWith("55"))phone="55"+phone;
+  const base=phone?"https://wa.me/"+phone:"https://wa.me/";
+  return base+"?text="+encodeURIComponent(text);
+}
+let shareOrderId="";
+function openShareDialog(o){
+  shareOrderId=String(o.id);
+  const text=orderSummaryText(o);
+  const preview=document.getElementById("sharePreview");
+  if(preview)preview.innerHTML=summaryHtml(text);
+  document.getElementById("shareDialog")?.showModal();
+}
+async function shareOrder(o){openShareDialog(o)}
+async function copyOrderSummary(o){
   const text=orderSummaryText(o);
   try{
-    if(navigator.share){await navigator.share({title:"Atendimento #"+o.id,text});return}
-    await navigator.clipboard.writeText(text);notify("Resumo copiado.");
+    await navigator.clipboard.writeText(text);
+    notify("Resumo copiado.");
+  }catch{
+    const area=document.createElement("textarea");
+    area.value=text;document.body.appendChild(area);area.select();document.execCommand("copy");area.remove();
+    notify("Resumo copiado.");
+  }
+}
+async function nativeShareOrder(o){
+  const text=orderSummaryText(o);
+  try{
+    if(navigator.share)await navigator.share({title:"Atendimento #"+o.id,text});
+    else await copyOrderSummary(o);
   }catch{}
 }
-function printReceipt(o){
-  const total=orderTotalValue(o);
-  const w=window.open("","_blank","width=720,height=900");
+async function getSignatureDataUrl(orderId){
+  try{
+    const rows=await getOrderMedia(orderId);
+    const sig=rows.filter(r=>r.kind==="signature").sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)))[0];
+    if(!sig?.blob)return "";
+    return await blobToDataUrl(sig.blob);
+  }catch{return ""}
+}
+function receiptDate(o){
+  const value=o.closedAt||o.createdAt;
+  if(!value)return new Date().toLocaleString("pt-BR");
+  const d=new Date(value);
+  return Number.isNaN(d.getTime())?String(value):d.toLocaleString("pt-BR");
+}
+async function printReceipt(o){
+  const w=window.open("","_blank","width=820,height=980");
   if(!w){notify("Libere pop-ups para gerar o comprovante.");return}
-  w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Atendimento '+esc(o.id)+'</title><style>body{font:15px Arial,sans-serif;color:#1d2730;max-width:720px;margin:40px auto;padding:0 24px}h1{color:#073d59}small{color:#6d7b84}.box{border:1px solid #dfe7eb;border-radius:12px;padding:14px;margin:12px 0}.total{font-size:24px;font-weight:700}.sig{margin-top:40px;border-top:1px solid #999;padding-top:8px;width:280px}@media print{button{display:none}}</style></head><body><h1>Luiz Miguel</h1><small>Ar Condicionado e Refrigeração</small><h2>Comprovante de atendimento #'+esc(o.id)+'</h2><div class="box"><b>Cliente</b><br>'+esc(o.customer||"")+'<br><small>'+esc(o.phone||"")+'</small></div><div class="box"><b>Equipamento</b><br>'+esc(o.equipment||"")+'</div><div class="box"><b>Diagnóstico</b><br>'+esc(o.diagnosis||"Não informado")+'</div><div class="box"><b>Serviço executado</b><br>'+esc(o.service||"Não informado")+(o.materials?'<br><small>Materiais: '+esc(o.materials)+'</small>':'')+'</div><div class="box"><b>Total</b><div class="total">'+moneyValue(total)+'</div><small>'+esc(o.payment||"")+' · '+esc(paymentStatusLabel(o.paymentStatus))+'</small></div>'+(o.warrantyUntil?'<p><b>Garantia registrada até:</b> '+esc(formatDateBR(o.warrantyUntil))+'</p>':'')+'<div class="sig">Assinatura / confirmação do cliente</div><br><button onclick="window.print()">Imprimir / Salvar PDF</button></body></html>');
+  w.document.write('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Comprovante '+esc(o.id)+'</title></head><body style="font-family:Arial,sans-serif;padding:24px;color:#073d59">Preparando comprovante…</body></html>');
   w.document.close();
+
+  const total=orderTotalValue(o);
+  const sig=await getSignatureDataUrl(o.id);
+  const logo=new URL("./icon.svg",location.href).href;
+  const payment=[o.payment,paymentStatusLabel(o.paymentStatus)].filter(Boolean).join(" · ");
+  const warranty=o.warrantyUntil?'<div class="meta-item"><span>Garantia</span><b>Até '+esc(formatDateBR(o.warrantyUntil))+'</b></div>':"";
+  const preventive=o.nextPreventive?'<div class="meta-item"><span>Próxima preventiva</span><b>'+esc(formatDateBR(o.nextPreventive))+'</b></div>':"";
+  const observation=o.closingNotes?'<section><h3>Observação</h3><p>'+esc(o.closingNotes)+'</p></section>':"";
+  const signature=sig
+    ?'<div class="signature-proof"><img src="'+sig+'" alt="Assinatura do cliente"><span>Assinatura / confirmação do cliente</span></div>'
+    :'<div class="signature-proof empty"><div></div><span>Assinatura / confirmação do cliente</span></div>';
+
+  const doc='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Comprovante '+esc(o.id)+'</title><style>'+
+  ':root{--blue:#073d59;--muted:#667780;--line:#dbe5ea;--soft:#f4f8fa}*{box-sizing:border-box}body{margin:0;background:#eef3f5;color:#172832;font:14px/1.45 Arial,sans-serif}.toolbar{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line);padding:10px 16px;display:flex;justify-content:flex-end}.toolbar button{border:0;border-radius:10px;background:var(--blue);color:#fff;padding:11px 16px;font-weight:700}.sheet{width:min(794px,calc(100% - 24px));margin:18px auto;background:#fff;min-height:1080px;padding:36px 42px;box-shadow:0 8px 30px rgba(7,61,89,.08)}.brand{display:flex;align-items:center;gap:14px;padding-bottom:20px;border-bottom:2px solid var(--blue)}.brand img{width:58px;height:58px}.brand h1{margin:0;color:var(--blue);font-size:26px;letter-spacing:.02em}.brand p{margin:2px 0 0;color:#334751;font-size:11px;font-weight:700;letter-spacing:.12em}.company{margin-left:auto;text-align:right;color:var(--muted);font-size:10px}.title{display:flex;justify-content:space-between;gap:18px;align-items:flex-end;margin:26px 0 18px}.title h2{margin:0;color:#172832;font-size:22px}.title small{color:var(--muted)}section{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:10px 0}section h3{margin:0 0 6px;color:var(--blue);font-size:11px;text-transform:uppercase;letter-spacing:.08em}section p{margin:0;white-space:pre-wrap}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.totals{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0}.totals div,.meta-item{background:var(--soft);border-radius:10px;padding:12px}.totals span,.meta-item span{display:block;color:var(--muted);font-size:10px}.totals b,.meta-item b{display:block;margin-top:3px;color:var(--blue);font-size:15px}.totals .grand{background:var(--blue)}.totals .grand span,.totals .grand b{color:#fff}.meta{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.signature-proof{margin-top:34px;width:310px}.signature-proof img{display:block;width:100%;height:100px;object-fit:contain;object-position:center bottom;border-bottom:1px solid #70818a}.signature-proof.empty div{height:100px;border-bottom:1px solid #70818a}.signature-proof span{display:block;margin-top:6px;color:var(--muted);font-size:10px;text-align:center}.footer{margin-top:34px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted);font-size:9px;text-align:center}@media(max-width:620px){.sheet{width:100%;margin:0;min-height:100vh;padding:24px 20px;box-shadow:none}.brand h1{font-size:20px}.brand img{width:48px;height:48px}.company{display:none}.title{align-items:flex-start;flex-direction:column}.grid,.meta{grid-template-columns:1fr}.totals{grid-template-columns:1fr 1fr}.totals .grand{grid-column:1/-1}.signature-proof{width:100%;max-width:310px}}@media print{@page{size:A4;margin:12mm}body{background:#fff}.toolbar{display:none}.sheet{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}.brand{break-inside:avoid}section,.totals,.meta,.signature-proof{break-inside:avoid}}'+
+  '</style></head><body><div class="toolbar"><button onclick="window.print()">Imprimir / Salvar PDF</button></div><main class="sheet">'+
+  '<header class="brand"><img src="'+logo+'" alt=""><div><h1>LUIZ MIGUEL</h1><p>AR CONDICIONADO E REFRIGERAÇÃO</p></div><div class="company">CNPJ 22.222.022/0001-39<br>19 99232-3703<br>luizmiguel229@yahoo.com.br<br>São João da Boa Vista - SP</div></header>'+
+  '<div class="title"><div><small>COMPROVANTE DE ATENDIMENTO</small><h2>#'+esc(o.id)+'</h2></div><small>'+esc(receiptDate(o))+'</small></div>'+
+  '<div class="grid"><section><h3>Cliente</h3><p><b>'+esc(o.customer||"")+'</b>'+(o.phone?'<br>'+esc(o.phone):'')+(o.address?'<br>'+esc(o.address):'')+'</p></section><section><h3>Equipamento</h3><p><b>'+esc(o.equipment||"Não informado")+'</b>'+(o.room?'<br>Ambiente: '+esc(o.room):'')+(o.serial?'<br>S/N: '+esc(o.serial):'')+'</p></section></div>'+
+  '<section><h3>Problema relatado</h3><p>'+esc(o.complaint||"Não informado")+'</p></section>'+
+  '<section><h3>Diagnóstico</h3><p>'+esc(o.diagnosis||"Não informado")+'</p></section>'+
+  '<section><h3>Serviço executado</h3><p>'+esc(o.service||"Não informado")+(o.materials?'\n\nMateriais / peças: '+esc(o.materials):'')+'</p></section>'+
+  '<div class="totals"><div><span>Serviço / mão de obra</span><b>'+moneyValue(o.laborValue)+'</b></div><div><span>Materiais</span><b>'+moneyValue(o.materialValue)+'</b></div><div class="grand"><span>Total</span><b>'+moneyValue(total)+'</b></div></div>'+
+  '<div class="meta"><div class="meta-item"><span>Pagamento</span><b>'+esc(payment||"Não informado")+'</b></div>'+warranty+preventive+'</div>'+
+  observation+signature+
+  '<div class="footer">Luiz Miguel Ar Condicionado e Refrigeração · CNPJ 22.222.022/0001-39 · 19 99232-3703</div>'+
+  '</main></body></html>';
+  w.document.open();w.document.write(doc);w.document.close();
 }
 function orderHistoryCard(o){
   const total=orderTotalValue(o);
@@ -538,13 +620,29 @@ function resizeSignature(){
   if(!signatureCanvas)return;
   const r=signatureCanvas.getBoundingClientRect(),ratio=Math.max(1,window.devicePixelRatio||1);
   signatureCanvas.width=Math.floor(r.width*ratio);signatureCanvas.height=Math.floor(r.height*ratio);
-  signatureCtx.setTransform(ratio,0,0,ratio,0,0);signatureCtx.lineWidth=2.2;signatureCtx.lineCap="round";signatureCtx.strokeStyle="#0b3346";
+  signatureCtx.setTransform(ratio,0,0,ratio,0,0);signatureCtx.lineWidth=2.5;signatureCtx.lineCap="round";signatureCtx.lineJoin="round";signatureCtx.strokeStyle="#0b3346";
 }
 function sigPoint(e){const r=signatureCanvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
-signatureCanvas?.addEventListener("pointerdown",e=>{signatureDrawing=true;hasSignature=true;const p=sigPoint(e);signatureCtx.beginPath();signatureCtx.moveTo(p.x,p.y)});
-signatureCanvas?.addEventListener("pointermove",e=>{if(!signatureDrawing)return;const p=sigPoint(e);signatureCtx.lineTo(p.x,p.y);signatureCtx.stroke()});
-window.addEventListener("pointerup",()=>signatureDrawing=false);
-document.getElementById("clearSignature")?.addEventListener("click",()=>{signatureCtx.clearRect(0,0,signatureCanvas.width,signatureCanvas.height);hasSignature=false});
+function updateSignatureUi(){
+  const wrap=document.getElementById("signatureWrap"),status=document.getElementById("signatureStatus"),hint=document.getElementById("signatureHint");
+  wrap?.classList.toggle("signed",hasSignature);
+  if(status)status.textContent=hasSignature?"Assinatura registrada":"Aguardando assinatura";
+  if(hint)hint.hidden=hasSignature;
+}
+signatureCanvas?.addEventListener("pointerdown",e=>{
+  e.preventDefault();signatureCanvas.setPointerCapture?.(e.pointerId);
+  signatureDrawing=true;hasSignature=true;updateSignatureUi();
+  const p=sigPoint(e);signatureCtx.beginPath();signatureCtx.moveTo(p.x,p.y);
+});
+signatureCanvas?.addEventListener("pointermove",e=>{
+  if(!signatureDrawing)return;e.preventDefault();
+  const p=sigPoint(e);signatureCtx.lineTo(p.x,p.y);signatureCtx.stroke();
+});
+signatureCanvas?.addEventListener("pointerup",e=>{signatureDrawing=false;signatureCanvas.releasePointerCapture?.(e.pointerId)});
+signatureCanvas?.addEventListener("pointercancel",()=>signatureDrawing=false);
+document.getElementById("clearSignature")?.addEventListener("click",()=>{
+  signatureCtx.clearRect(0,0,signatureCanvas.width,signatureCanvas.height);hasSignature=false;updateSignatureUi();
+});
 document.getElementById("cancelFinish")?.addEventListener("click",()=>finishDialog.close());
 function openFinish(o){
   finishForm.reset();document.getElementById("finishOrderId").value=o.id;
@@ -555,13 +653,18 @@ function openFinish(o){
   finishForm.elements.nextPreventive.value=o.nextPreventive||"";
   finishForm.elements.warrantyDays.value=o.warrantyDays||"0";
   finishForm.elements.closingNotes.value=o.closingNotes||"";
-  hasSignature=false;finishDialog.showModal();requestAnimationFrame(resizeSignature);
+  hasSignature=false;updateSignatureUi();finishDialog.showModal();requestAnimationFrame(resizeSignature);
 }
 finishForm?.addEventListener("submit",async e=>{
   e.preventDefault();const fd=new FormData(finishForm),id=document.getElementById("finishOrderId").value,o=findOrder(id);if(!o)return;
   const labor=parseMoney(fd.get("laborValue")),materialsValue=parseMoney(fd.get("materialValue")),total=labor+materialsValue;
   const paymentStatus=String(fd.get("paymentStatus")||"paid"),warrantyDays=Number(fd.get("warrantyDays")||0);
-  const patch={diagnosis:String(fd.get("diagnosis")||""),service:String(fd.get("service")||""),materials:String(fd.get("materials")||""),laborValue:labor,materialValue:materialsValue,payment:String(fd.get("payment")||"Pix"),paymentStatus,amountPaid:parseMoney(fd.get("amountPaid")),nextPreventive:String(fd.get("nextPreventive")||""),warrantyDays,warrantyUntil:calcWarrantyUntil(warrantyDays),closingNotes:String(fd.get("closingNotes")||""),finishPhotos:(document.getElementById("finishPhotos").files||[]).length,signed:Boolean(document.getElementById("signedConsent").checked&&hasSignature),status:"Finalizado",tag:"done",closedAt:new Date().toISOString(),value:moneyValue(total)};
+  const consentChecked=Boolean(document.getElementById("signedConsent").checked);
+  if(hasSignature!==consentChecked){
+    notify(hasSignature?"Marque a confirmação do cliente para registrar a assinatura.":"Assine no campo ou desmarque a confirmação.");
+    return;
+  }
+  const patch={diagnosis:String(fd.get("diagnosis")||""),service:String(fd.get("service")||""),materials:String(fd.get("materials")||""),laborValue:labor,materialValue:materialsValue,payment:String(fd.get("payment")||"Pix"),paymentStatus,amountPaid:parseMoney(fd.get("amountPaid")),nextPreventive:String(fd.get("nextPreventive")||""),warrantyDays,warrantyUntil:calcWarrantyUntil(warrantyDays),closingNotes:String(fd.get("closingNotes")||""),finishPhotos:(document.getElementById("finishPhotos").files||[]).length,signed:Boolean(consentChecked&&hasSignature),signedAt:(consentChecked&&hasSignature)?new Date().toISOString():"",status:"Finalizado",tag:"done",closedAt:new Date().toISOString(),value:moneyValue(total)};
   if(paymentStatus==="paid"&&!patch.amountPaid)patch.amountPaid=total;
   patch.history=[...(o.history||[]),{when:historyStamp(),label:"Atendimento finalizado",detail:(patch.service||"Serviço concluído")+" · "+patch.value+" · "+paymentStatusLabel(patch.paymentStatus)+(patch.signed?" · assinado":"")}];
   const finishFiles=[...(document.getElementById("finishPhotos").files||[])];
@@ -768,4 +871,21 @@ document.addEventListener("click",e=>{
 document.getElementById("visitSearch")?.addEventListener("input",renderVisits);
 document.getElementById("visitFilters")?.addEventListener("click",e=>{
   const b=e.target.closest("[data-visit-filter]");if(!b)return;visitFilter=b.dataset.visitFilter;renderVisits();
+});
+
+
+const shareDialog=document.getElementById("shareDialog");
+function currentShareOrder(){return findOrder(shareOrderId)}
+document.getElementById("shareWhatsapp")?.addEventListener("click",()=>{
+  const o=currentShareOrder();if(!o)return;
+  window.open(whatsappShareHref(o,orderSummaryText(o)),"_blank","noopener");
+});
+document.getElementById("shareCopy")?.addEventListener("click",async()=>{
+  const o=currentShareOrder();if(o)await copyOrderSummary(o);
+});
+document.getElementById("shareNative")?.addEventListener("click",async()=>{
+  const o=currentShareOrder();if(o)await nativeShareOrder(o);
+});
+document.getElementById("shareReceipt")?.addEventListener("click",async()=>{
+  const o=currentShareOrder();if(o)await printReceipt(o);
 });
