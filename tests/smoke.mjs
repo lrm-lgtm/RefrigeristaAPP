@@ -20,6 +20,8 @@ assert(html.includes('id="googleCalendarConnectBtn"'),"Google Calendar connect c
 assert(html.includes('name="appointmentDurationMinutes"'),"appointment duration selector missing");
 assert(html.includes('data-view="visits"'),"visits view missing");
 assert(html.includes('id="visitDialog"'),"visit dialog missing");
+assert(html.includes('id="shareDialog"'),"share dialog missing");
+assert(html.includes('id="signatureStatus"'),"signature status missing");
 assert(html.includes('data-action="new-visit"'),"quick visit action missing");
 
 const cssVersion=(html.match(/styles\.css\?v=(\d+)/)||[])[1];
@@ -41,6 +43,9 @@ assert(app.includes("function orderWhenLabel("),"schedule formatting missing");
 assert(app.includes("function visitRows()"),"visit local storage missing");
 assert(app.includes("function renderVisits()"),"visit rendering missing");
 assert(app.includes("pendingVisitConversionId"),"visit to attendance conversion missing");
+assert(app.includes("whatsappShareHref"),"WhatsApp summary sharing missing");
+assert(app.includes("getSignatureDataUrl"),"receipt signature embedding missing");
+assert(app.includes("signedAt"),"signature timestamp missing");
 assert(cloud.includes("signInWithPassword"),"password login missing");
 assert(cloud.includes("signUp"),"first access flow missing");
 assert(cloud.includes("uploadLocalData"),"manual cloud upload missing");
