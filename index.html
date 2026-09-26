@@ -8,7 +8,7 @@
   <title>Luiz Miguel | Refrigeração</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=23">
+  <link rel="stylesheet" href="./styles.css?v=24">
 </head>
 <body>
   <header class="topbar">
@@ -227,11 +227,33 @@
       <div class="grid2"><label>Valor recebido<input name="amountPaid" inputmode="decimal" placeholder="0,00"></label><label>Próxima preventiva<input name="nextPreventive" type="date"></label></div>
       <div class="grid2"><label>Garantia do serviço<select name="warrantyDays"><option value="0">Sem garantia registrada</option><option value="30">30 dias</option><option value="60">60 dias</option><option value="90">90 dias</option><option value="180">180 dias</option></select></label><label>Observação rápida<input name="closingNotes" placeholder="Ex.: retorno se voltar a congelar"></label></div>
       <label>Fotos do serviço <small>opcional</small><input id="finishPhotos" type="file" accept="image/*" capture="environment" multiple><span class="field-note">As fotos ficam vinculadas à OS neste aparelho durante a fase piloto.</span></label>
-      <div class="signature-wrap"><div class="signature-head"><div><b>Assinatura do cliente</b><small>Assine com o dedo</small></div><button type="button" id="clearSignature">Limpar</button></div><canvas id="signatureCanvas" width="640" height="220"></canvas></div>
+      <div class="signature-wrap" id="signatureWrap">
+        <div class="signature-head">
+          <div><b>Assinatura do cliente</b><small id="signatureStatus">Aguardando assinatura</small></div>
+          <button type="button" id="clearSignature">Limpar</button>
+        </div>
+        <div class="signature-stage">
+          <canvas id="signatureCanvas" width="640" height="220"></canvas>
+          <span class="signature-hint" id="signatureHint">Assine aqui com o dedo</span>
+        </div>
+      </div>
       <label class="consent"><input type="checkbox" id="signedConsent"><span>Cliente confirma o serviço executado e os valores informados.</span></label>
       <div class="actions"><button type="button" class="secondary" id="cancelFinish">Cancelar</button><button class="primary" type="submit">Finalizar atendimento</button></div>
     </form>
   </dialog>
+  <dialog id="shareDialog" class="share-dialog">
+    <form method="dialog">
+      <header><div><span>Enviar ao cliente</span><h2>Resumo do atendimento</h2></div><button value="cancel">×</button></header>
+      <div class="share-preview" id="sharePreview"></div>
+      <div class="share-actions">
+        <button type="button" class="whatsapp-share" id="shareWhatsapp">WhatsApp</button>
+        <button type="button" class="secondary" id="shareCopy">Copiar texto</button>
+        <button type="button" class="secondary" id="shareNative">Compartilhar</button>
+        <button type="button" class="secondary" id="shareReceipt">Comprovante</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="globalSearchDialog" class="search-dialog">
     <form method="dialog">
       <header><div><span>Busca geral</span><h2>Encontrar no histórico</h2></div><button value="cancel">×</button></header>
@@ -318,7 +340,7 @@
   </dialog>
   <div class="toast" id="toast"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./app.js?v=23"></script>
-  <script src="./cloud.js?v=23"></script>
+  <script src="./app.js?v=24"></script>
+  <script src="./cloud.js?v=24"></script>
 </body>
 </html>
